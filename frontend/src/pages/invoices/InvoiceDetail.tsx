@@ -275,7 +275,7 @@ function PaymentsCard({ invoice }: { invoice: Invoice }) {
                 <span className="text-xs text-muted">{formatDate(payment.payment_date)}</span>
               </div>
               <p className="mt-0.5 text-xs text-muted">
-                {PAYMENT_METHOD_LABELS[payment.method]}
+                {payment.number} · {PAYMENT_METHOD_LABELS[payment.method]}
                 {payment.note && ` · ${payment.note}`}
               </p>
             </li>

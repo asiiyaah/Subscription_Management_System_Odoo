@@ -25,6 +25,8 @@ export interface InvoiceTax {
 
 export interface InvoicePayment {
   id: number;
+  /** e.g. "PAY-0042" */
+  number: string;
   payment_date: string;
   method: PaymentMethod;
   amount: number;

@@ -1,17 +1,16 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, CircleDollarSign, FileText, Hourglass, Wallet, Zap } from "lucide-react";
 import { DataTable } from "@/components/common/DataTable";
 import { PageHeader } from "@/components/common/PageHeader";
-import { Skeleton } from "@/components/common/States";
+import { SummaryCard } from "@/components/common/SummaryCard";
 import { Tabs } from "@/components/common/Tabs";
 import { Button } from "@/components/ui/Button";
 import { GenerateInvoicesDialog } from "@/components/invoices/GenerateInvoicesDialog";
 import { invoiceColumns } from "@/components/invoices/invoiceColumns";
 import { useInvoiceActions } from "@/components/invoices/useInvoiceActions";
 import { useListQuery } from "@/hooks/useListQuery";
-import { cn } from "@/lib/cn";
 import { formatCurrency } from "@/lib/format";
 import { invoiceService } from "@/services/invoiceService";
 import type { InvoiceListQuery } from "@/types/invoice";
@@ -127,49 +126,5 @@ export default function Invoices() {
         onViewDrafts={() => changeTab("draft")}
       />
     </>
-  );
-}
-
-const TONES = {
-  violet: "from-violet/25 to-violet/5 text-violet",
-  success: "from-success/25 to-success/5 text-success",
-  accent: "from-accent/25 to-accent/5 text-accent",
-  danger: "from-danger/25 to-danger/5 text-danger",
-};
-
-function SummaryCard({
-  icon,
-  label,
-  value,
-  tone,
-  onClick,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string | undefined;
-  tone: keyof typeof TONES;
-  onClick?: () => void;
-}) {
-  const Tag = onClick ? "button" : "div";
-  return (
-    <Tag
-      onClick={onClick}
-      className={cn(
-        "flex items-center gap-3 rounded-2xl border border-line bg-surface/70 p-4 text-left",
-        onClick && "transition hover:border-danger/50 hover:bg-surface",
-      )}
-    >
-      <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br [&>svg]:size-5", TONES[tone])}>
-        {icon}
-      </span>
-      <span className="min-w-0">
-        <span className="block text-xs font-medium text-muted">{label}</span>
-        {value === undefined ? (
-          <Skeleton className="mt-1.5 h-5 w-24" />
-        ) : (
-          <span className="block truncate text-lg font-bold">{value}</span>
-        )}
-      </span>
-    </Tag>
   );
 }
