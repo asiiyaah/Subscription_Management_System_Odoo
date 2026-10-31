@@ -5,7 +5,7 @@ import type { Paginated } from "@/types/common";
 import type {
   Subscription, SubscriptionAction, SubscriptionCreate, SubscriptionCustomerOption,
   SubscriptionDiscountOption, SubscriptionInvoicePage, SubscriptionListQuery,
-  SubscriptionPreview, SubscriptionProductDetail, SubscriptionTemplateOption, SubscriptionUpdate,
+  SubscriptionPreview, SubscriptionProductDetail, SubscriptionUpdate,
 } from "@/types/subscription";
 
 async function request<T>(call: () => Promise<{ data: T }>): Promise<T> {
@@ -62,13 +62,6 @@ export const subscriptionService = {
       () => api.get("/api/discounts", { params: { active: true, page: 1, page_size: 100 } }),
     );
     return result.items.map((item) => ({ id: item.id, code: item.code, name: item.name, active: Boolean(item.is_active) }));
-  },
-  async templates(): Promise<SubscriptionTemplateOption[]> {
-    if (USE_MOCKS) return mockSubscriptions.templates();
-    const result = await request<{ items: SubscriptionTemplateOption[] }>(
-      () => api.get("/api/quotation-templates", { params: { page: 1, page_size: 100 } }),
-    );
-    return result.items.filter((item) => item.status === "active");
   },
   invoices(id: string): Promise<SubscriptionInvoicePage> {
     if (USE_MOCKS) return mockSubscriptions.invoices(id);
