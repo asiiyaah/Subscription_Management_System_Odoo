@@ -1,4 +1,5 @@
 from pathlib import Path
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -16,6 +17,13 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
     AI_PROVIDER: str = "gemini"
+    AI_API_KEY: str = ""
+    AI_MODEL: str = ""
+    AI_BASE_URL: str = ""
+    AI_TEMPERATURE: float = Field(default=0.3, ge=0, le=2)
+    AI_MAX_TOKENS: int = Field(default=2048, ge=128, le=32768)
+    AI_TIMEOUT_SECONDS: int = Field(default=30, ge=1, le=120)
+    AI_TURN_TIMEOUT_SECONDS: int = Field(default=50, ge=1, le=120)
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-2.0-flash"
     OPENAI_API_KEY: str = ""

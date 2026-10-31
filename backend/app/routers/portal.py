@@ -16,6 +16,7 @@ from app.models.user import User
 from app.routers.invoices import _attach_detail_fields, _invoice_dict, _ui_status
 from app.routers.settings import ProfileInput, update_profile
 from app.services.subscription_service import transition_subscription
+from app.routers.analytics import _monthly_amount
 
 router = APIRouter(prefix="/api/portal", tags=["customer portal"])
 _CONFIRMED = ("open", "sent", "partial", "confirmed")
@@ -77,12 +78,16 @@ def summary(db: Session = Depends(get_db), user: User = Depends(get_current_user
 def my_subscriptions(page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
                      db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     cid = _customer_required(user)
-    query = db.query(Subscription).filter(Subscription.customer_id == cid)
+    query = db.query(Subscription).options(
+        selectinload(Subscription.lines).joinedload(SubscriptionLine.plan)
+    ).filter(Subscription.customer_id == cid)
     total = query.count()
     rows = query.order_by(Subscription.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
-    return {"items": [{"id": str(s.id), "subscription_number": s.subscription_number, "status": s.status,
+    return {"items": [{"id": str(s.id), "subscription_number": s.subscription_number, "plan_name": next(
+            (line.plan.name for line in s.lines if line.plan), ""), "status": s.status,
         "next_billing_date": s.next_billing_date.isoformat() if s.next_billing_date else None,
-        "total": float(Decimal(str(s.total or 0)))} for s in rows], "total": total, "page": page, "page_size": page_size}
+        "total": float(_monthly_amount(Decimal(str((s.subtotal or 0) - (s.discount_total or 0))),
+            s.billing_period, s.billing_interval))} for s in rows], "total": total, "page": page, "page_size": page_size}
 
 
 @router.get("/subscriptions/{subscription_id}")
@@ -92,9 +97,16 @@ def subscription_detail(subscription_id: UUID, db: Session = Depends(get_db), us
         Subscription.id == subscription_id, Subscription.customer_id == cid).first()
     if not sub:
         raise HTTPException(404, "Subscription not found")
-    return {"id": str(sub.id), "subscription_number": sub.subscription_number, "status": sub.status,
+    plans = [line.plan for line in sub.lines if line.plan]
+    return {"id": str(sub.id), "subscription_number": sub.subscription_number,
+        "plan_name": next((plan.name for plan in plans), ""), "status": sub.status,
         "billing_period": sub.billing_period, "next_billing_date": sub.next_billing_date.isoformat() if sub.next_billing_date else None,
+        "is_pausable": all(bool(plan.is_pausable) for plan in plans) if plans else False,
+        "is_renewable": all(bool(plan.is_renewable) for plan in plans) if plans else False,
+        "allows_early_closure": all(bool(plan.allows_early_closure) for plan in plans) if plans else False,
         "total": float(Decimal(str(sub.total or 0))), "lines": [{"product_id": str(line.product_id),
+        "product_name": line.product.name if line.product else line.description,
+        "plan_name": line.plan.name if line.plan else None,
         "description": line.description, "quantity": float(line.quantity or 1), "line_total": float(Decimal(str(line.line_total)))} for line in sub.lines]}
 
 

@@ -200,15 +200,32 @@ def complete_report(date_from: date | None = None, date_to: date | None = None,
         months.append({"month": key, "invoiced": float(month_invoice.get(key, Decimal("0"))),
             "collected": float(month_payment.get(key, (Decimal("0"), 0))[0])})
         cursor = date(cursor.year + (cursor.month // 12), cursor.month % 12 + 1, 1)
-    avg_days = 0
-    payment_timing = db.query(func.avg(func.greatest(func.current_date() - Invoice.invoice_date, 0))).select_from(Payment).join(Invoice, Invoice.id == Payment.invoice_id).filter(
-        Payment.status == "completed", Payment.payment_date >= start, Payment.payment_date < end + timedelta(days=1))
+    # Bucket each completed collection by the elapsed days between the invoice
+    # issue date and the actual payment date. Use SQL aggregation so report size
+    # does not grow with the number of payments.
+    payment_days = func.date(Payment.payment_date) - Invoice.invoice_date
+    timing_scope = db.query(Payment, Invoice).join(Invoice, Invoice.id == Payment.invoice_id).filter(
+        Payment.status == "completed", Payment.payment_date >= start,
+        Payment.payment_date < end + timedelta(days=1), payment_days >= 0)
     if customer_id:
-        payment_timing = payment_timing.filter(Payment.customer_id == customer_id)
+        timing_scope = timing_scope.filter(Payment.customer_id == customer_id)
     if plan_filter:
-        payment_timing = payment_timing.filter(Invoice.subscription_id.in_(
+        timing_scope = timing_scope.filter(Invoice.subscription_id.in_(
             db.query(plan_by_subscription.c.subscription_id).filter(plan_by_subscription.c.plan_name == plan_filter)))
-    avg_days = round(float(payment_timing.scalar() or 0), 1)
+    bucket_expr = case(
+        (payment_days <= 7, literal_column("'0–7 days'")),
+        (payment_days <= 15, literal_column("'8–15 days'")),
+        (payment_days <= 30, literal_column("'16–30 days'")),
+        else_=literal_column("'31+ days'"),
+    ).label("bucket")
+    timing_rows = (timing_scope.with_entities(bucket_expr, func.count(Payment.id),
+            func.coalesce(func.sum(Payment.amount), 0))
+        .group_by(bucket_expr).all())
+    timing_values = {bucket: (int(count), float(amount or 0)) for bucket, count, amount in timing_rows}
+    payment_timing = [{"bucket": bucket, "count": timing_values.get(bucket, (0, 0.0))[0],
+        "amount": timing_values.get(bucket, (0, 0.0))[1]}
+        for bucket in ("0–7 days", "8–15 days", "16–30 days", "31+ days")]
+    avg_days = round(float(timing_scope.with_entities(func.avg(payment_days)).scalar()), 1) if timing_rows else None
 
     return {"summary": {"active_subscriptions": int(active_count), "mrr": float(mrr), "invoiced": float(invoiced_total),
         "collected": float(payment_total), "outstanding": float(outstanding_total),
@@ -222,7 +239,7 @@ def complete_report(date_from: date | None = None, date_to: date | None = None,
             "count": month_payment.get(date(year, month, 1).strftime("%Y-%m"), (Decimal("0"), 0))[1]}
             for year, month in [(int(item["month"][:4]), int(item["month"][5:])) for item in months]],
         "payments_by_method": [{"method": (method or "").replace(" ", "_"), "amount": float(amount or 0), "count": int(count)} for method, amount, count in method_rows],
-        "payments": payments, "payments_total": int(payments_count), "payment_timing": {"avg_days_to_pay": avg_days},
+        "payments": payments, "payments_total": int(payments_count), "payment_timing": payment_timing,
         "avg_days_to_pay": avg_days, "outstanding_by_month": outstanding_by_month, "overdue_aging": overdue_aging, "overdue": overdue_detail}
 
 
