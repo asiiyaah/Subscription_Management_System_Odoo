@@ -111,9 +111,14 @@ export default function MySubscriptionDetail() {
     </section>
 
     <section className="rounded-2xl border border-line bg-surface/70 p-5">
-      <h2 className="mb-2 flex items-center gap-2 font-semibold"><FileText className="size-4 text-primary" aria-hidden />Invoices</h2>
-      <p className="text-sm text-muted">The portal API does not currently filter invoices by subscription. You can review all invoices for your account.</p>
-      <Link to="/portal/invoices" className="mt-3 inline-flex min-h-10 items-center font-semibold text-primary hover:underline">View my invoices</Link>
+      <h2 className="mb-3 flex items-center gap-2 font-semibold"><FileText className="size-4 text-primary" aria-hidden />Invoices for this subscription</h2>
+      {invoices.isPending ? <Skeleton className="h-20" /> : invoices.isError ? <ErrorState message={invoices.error.message} onRetry={() => void invoices.refetch()} />
+        : invoices.data.length ? <ul className="divide-y divide-line/60">{invoices.data.slice(0, 10).map((invoice) => <li key={invoice.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+          <div><Link to={`/portal/invoices/${invoice.id}`} className="font-semibold text-primary hover:underline">{invoice.number}</Link><p className="text-xs text-muted">{formatDate(invoice.invoice_date)} · due {formatDate(invoice.due_date)}</p></div>
+          <div className="flex items-center gap-3"><StatusBadge status={invoice.status} /><span className="font-semibold tabular-nums">{formatCurrency(num(invoice.total))}</span></div>
+        </li>)}</ul>
+          : <p className="text-sm text-muted">No invoices are linked to this subscription yet.</p>}
+      <Link to="/portal/invoices" className="mt-3 inline-flex min-h-10 items-center font-semibold text-primary hover:underline">View all my invoices</Link>
     </section>
 
     <section className="grid gap-5 lg:grid-cols-2">
