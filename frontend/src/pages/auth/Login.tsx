@@ -106,7 +106,7 @@ export default function Login() {
           Keep me signed in
         </label>
 
-        <Button type="submit" loading={mutation.isPending}>
+        <Button type="submit" block loading={mutation.isPending}>
           {mutation.isPending ? "Signing in…" : "Sign in"}
         </Button>
       </form>

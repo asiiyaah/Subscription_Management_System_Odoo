@@ -86,7 +86,7 @@ export default function ForgotPassword() {
           autoFocus
         />
 
-        <Button type="submit" loading={mutation.isPending}>
+        <Button type="submit" block loading={mutation.isPending}>
           {mutation.isPending ? "Sending link…" : "Send reset link"}
         </Button>
 

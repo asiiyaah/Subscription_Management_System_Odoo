@@ -163,8 +163,24 @@ We're using the **dark plum / magenta / pink→orange** theme (ignore any light/
 
 - Cards: `rounded-2xl border border-line bg-surface p-5`
 - Font: Plus Jakarta Sans (already loaded). Icons: `lucide-react`.
-- Reuse `Button`, `TextField`, `Alert` from `components/ui/`. Need something shared (Select, Dialog, DataTable, StatusBadge)? Message me first so we don't both build it — I'm planning `DataTable`, `StatusBadge`, `PageHeader`, `ConfirmDialog` next.
-- Money: format as INR with `Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" })` — I'll add a shared `formatCurrency` in `lib/format.ts`.
+- **Shared components are ready** — open **http://localhost:5173/ui-kit** (dev only) to see each one working, and copy the code from `src/pages/dev/UiKit.tsx`:
+
+  | Component | Import from | Use for |
+  |---|---|---|
+  | `DataTable` + `useListQuery` | `components/common/DataTable`, `hooks/useListQuery` | Every list page — search, sort, filters, pagination, row "⋯" menu, loading/empty/error |
+  | `Tabs` | `components/common/Tabs` | Status tabs with counts above a list |
+  | `StatusBadge` | `components/common/StatusBadge` | Any status string (draft, active, paid, overdue…) |
+  | `PageHeader` | `components/common/PageHeader` | Title + description + action buttons (+ back link on detail pages) |
+  | `EmptyState`, `ErrorState`, `Skeleton` | `components/common/States` | Cards and detail pages |
+  | `Button` (`primary`/`secondary`/`ghost`/`danger`, `size="sm"`) | `components/ui/Button` | All buttons |
+  | `TextField`, `Select`, `Textarea` | `components/ui/…` | Forms |
+  | `Dialog`, `ConfirmDialog` | `components/ui/…` | Create/edit forms, "Are you sure?" |
+  | `useToast()` | `components/ui/Toast` | `toast.success("Customer saved")` after actions |
+  | `paginate`, `mockDelay` | `mocks/utils` | Make your mock lists behave like the paginated API |
+  | `formatCurrency`, `formatDate`, `formatRelativeDays` | `lib/format` | ₹ amounts and dates |
+  | `Paginated<T>`, `ListQuery` | `types/common` | Service return/param types |
+
+- Need a new shared component? Message me first so we don't both build it.
 - Check every page at phone width (~400px).
 
 **Status colours** (subscriptions use these exact names, from the brief):

@@ -154,7 +154,7 @@ export default function Signup() {
           hint={passwordsMatch ? <span className="text-xs font-medium text-success">Passwords match</span> : null}
         />
 
-        <Button type="submit" loading={mutation.isPending} className="mt-2">
+        <Button type="submit" block loading={mutation.isPending} className="mt-2">
           {mutation.isPending ? "Creating account…" : "Create account"}
         </Button>
 

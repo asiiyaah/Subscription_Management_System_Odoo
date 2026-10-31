@@ -21,6 +21,8 @@ import { discountRoutes } from "@/pages/discounts/routes";
 import { aiRoutes } from "@/pages/ai/routes";
 import { reportRoutes } from "@/pages/reports/routes";
 
+import { devRoutes } from "@/pages/dev/routes";
+
 export function AppRoutes() {
   return useRoutes([
     // Public
@@ -47,6 +49,7 @@ export function AppRoutes() {
             ...discountRoutes,
             ...aiRoutes,
             ...reportRoutes,
+            ...(import.meta.env.DEV ? devRoutes : []),
           ],
         },
       ],
