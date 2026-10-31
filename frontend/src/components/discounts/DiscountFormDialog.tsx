@@ -10,10 +10,12 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { Switch } from "@/components/ui/Switch";
 import { TextField } from "@/components/ui/TextField";
 import { useToast } from "@/components/ui/Toast";
+import { toIsoDate } from "@/lib/format";
 import { discountService } from "@/services/discountService";
 import { lookupService } from "@/services/lookupService";
 import type { ApiError } from "@/services/api";
 import type { Discount, DiscountInput, DiscountType } from "@/types/discount";
+import type { Id } from "@/types/common";
 
 const FORM_ID = "discount-form";
 const CODE_PATTERN = /^[A-Z0-9_-]{3,20}$/;
@@ -67,11 +69,11 @@ function DiscountForm({ discount, onDone }: { discount: Discount | null; onDone:
   const [value, setValue] = useState(discount ? String(discount.value) : "");
   const [minPurchase, setMinPurchase] = useState(discount?.min_purchase ? String(discount.min_purchase) : "");
   const [minQuantity, setMinQuantity] = useState(discount?.min_quantity ? String(discount.min_quantity) : "");
-  const [startDate, setStartDate] = useState(discount?.start_date ?? new Date().toISOString().slice(0, 10));
+  const [startDate, setStartDate] = useState(discount?.start_date ?? toIsoDate());
   const [endDate, setEndDate] = useState(discount?.end_date ?? "");
   const [usageLimit, setUsageLimit] = useState(discount?.usage_limit ? String(discount.usage_limit) : "");
   const [appliesTo, setAppliesTo] = useState<DiscountInput["applies_to"]>(discount?.applies_to ?? "subscription");
-  const [productIds, setProductIds] = useState<number[]>(discount?.product_ids ?? []);
+  const [productIds, setProductIds] = useState<Id[]>(discount?.product_ids ?? []);
   const [active, setActive] = useState(discount?.active ?? true);
   const [errors, setErrors] = useState<Errors>({});
 

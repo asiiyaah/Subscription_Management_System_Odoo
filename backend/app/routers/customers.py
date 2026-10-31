@@ -7,8 +7,8 @@ import hashlib
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
-from sqlalchemy import or_
+from pydantic import AliasChoices, BaseModel, ConfigDict, EmailStr, Field
+from sqlalchemy import case, func, or_
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
@@ -31,12 +31,31 @@ from app.services.email_service import send_password_reset_email
 router = APIRouter(prefix="/api/customers", tags=["customers"])
 
 
+def _customer_rows(db: Session, rows: list[Customer]):
+    ids = [row.id for row in rows]
+    if not ids:
+        return []
+    active_counts = dict(db.query(Subscription.customer_id, func.sum(case((Subscription.status == "active", 1), else_=0)))
+        .filter(Subscription.customer_id.in_(ids)).group_by(Subscription.customer_id).all())
+    outstanding = dict(db.query(Invoice.customer_id, func.coalesce(func.sum(case((Invoice.status.in_(["open", "sent", "partial", "confirmed"]), Invoice.balance_due), else_=0)), 0))
+        .filter(Invoice.customer_id.in_(ids)).group_by(Invoice.customer_id).all())
+    paid = dict(db.query(Payment.customer_id, func.coalesce(func.sum(Payment.amount), 0))
+        .filter(Payment.customer_id.in_(ids), Payment.status == "completed").group_by(Payment.customer_id).all())
+    portal_ids = {cid for (cid,) in db.query(User.customer_id).filter(User.customer_id.in_(ids), User.is_active.is_(True)).all()}
+    return [CustomerOutput.model_validate(row).model_dump(mode="json") | {
+        "billing_address": row.address, "active_subscriptions": int(active_counts.get(row.id, 0) or 0),
+        "outstanding_amount": float(outstanding.get(row.id, 0) or 0), "total_paid": float(paid.get(row.id, 0) or 0),
+        "portal_access": row.id in portal_ids, "created_at": row.created_at.isoformat() if row.created_at else None,
+    } for row in rows]
+
+
 class CustomerInput(BaseModel):
     name: str = Field(min_length=1, max_length=150)
     email: EmailStr | None = None
     phone: str | None = Field(default=None, max_length=30)
     company: str | None = Field(default=None, max_length=150)
     address: str | None = None
+    billing_address: str | None = None
     city: str | None = None
     state: str | None = None
     postal_code: str | None = None
@@ -65,6 +84,7 @@ class CustomerPatch(BaseModel):
     phone: str | None = Field(default=None, max_length=30)
     company: str | None = Field(default=None, max_length=150)
     address: str | None = None
+    billing_address: str | None = None
     city: str | None = None
     state: str | None = None
     postal_code: str | None = None
@@ -73,22 +93,28 @@ class CustomerPatch(BaseModel):
 
 
 @router.get("")
-def list_customers(q: str | None = None, page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100), db: Session = Depends(get_db), _: User = Depends(require_roles("admin", "staff"))):
+def list_customers(q: str | None = None, search: str | None = None, active: bool | None = None,
+                   page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100), db: Session = Depends(get_db), _: User = Depends(require_roles("admin", "staff"))):
     query = db.query(Customer)
-    if q:
-        query = query.filter(or_(Customer.name.ilike(f"%{q}%"), Customer.email.ilike(f"%{q}%"), Customer.company.ilike(f"%{q}%")))
+    term = q or search
+    if term:
+        query = query.filter(or_(Customer.name.ilike(f"%{term}%"), Customer.email.ilike(f"%{term}%"), Customer.company.ilike(f"%{term}%")))
+    if active is not None:
+        query = query.filter(Customer.is_active.is_(active))
     total = query.count()
     rows = query.order_by(Customer.name).offset((page - 1) * page_size).limit(page_size).all()
-    return {"items": [CustomerOutput.model_validate(c).model_dump(mode="json") for c in rows], "total": total, "page": page, "page_size": page_size}
+    return {"items": _customer_rows(db, rows), "total": total, "page": page, "page_size": page_size}
 
 
 @router.post("", status_code=201)
 def create_customer(payload: CustomerInput, db: Session = Depends(get_db), _: User = Depends(require_roles("admin", "staff"))):
-    customer = Customer(**payload.model_dump())
+    data = payload.model_dump(exclude={"billing_address"})
+    data["address"] = payload.billing_address or payload.address
+    customer = Customer(**data)
     db.add(customer)
     db.commit()
     db.refresh(customer)
-    return CustomerOutput.model_validate(customer).model_dump(mode="json")
+    return _customer_rows(db, [customer])[0]
 
 
 @router.get("/{customer_id}")
@@ -96,7 +122,8 @@ def get_customer(customer_id: UUID, db: Session = Depends(get_db), _: User = Dep
     customer = db.get(Customer, customer_id)
     if not customer:
         raise HTTPException(404, "Customer not found")
-    data = CustomerOutput.model_validate(customer).model_dump(mode="json")
+    data = _customer_rows(db, [customer])[0]
+    data["customer_since"] = customer.created_at.date().isoformat() if customer.created_at else None
     data.update({"subscriptions": [{"id": str(s.id), "subscription_number": s.subscription_number, "status": s.status, "total": str(s.total or 0)} for s in customer.subscriptions],
                  "invoices": [{"id": str(i.id), "invoice_number": i.invoice_number, "status": i.status, "total": str(i.total or 0), "balance_due": str(i.balance_due or 0)} for i in customer.invoices],
                  "payments": [{"id": str(p.id), "amount": str(p.amount), "payment_date": p.payment_date.isoformat() if p.payment_date else None, "payment_method": p.payment_method} for p in customer.payments]})
@@ -107,16 +134,20 @@ def get_customer(customer_id: UUID, db: Session = Depends(get_db), _: User = Dep
 
 
 @router.patch("/{customer_id}")
+@router.put("/{customer_id}")
 def update_customer(customer_id: UUID, payload: CustomerPatch, db: Session = Depends(get_db), _: User = Depends(require_roles("admin", "staff"))):
     customer = db.get(Customer, customer_id)
     if not customer:
         raise HTTPException(404, "Customer not found")
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    if "billing_address" in data:
+        data["address"] = data.pop("billing_address")
+    for key, value in data.items():
         if key == "email" and value is not None:
             value = str(value).lower()
         setattr(customer, key, value)
     db.commit()
-    return CustomerOutput.model_validate(customer).model_dump(mode="json")
+    return _customer_rows(db, [customer])[0]
 
 
 @router.delete("/{customer_id}")
@@ -138,13 +169,12 @@ def invite_customer(customer_id: UUID, db: Session = Depends(get_db), actor: Use
         raise HTTPException(404, "Customer with an email address not found")
     if customer.portal_user:
         raise HTTPException(409, "Customer already has a portal account")
-    reset_token = secrets.token_urlsafe(32)
     user = User(name=customer.name, email=customer.email.lower(), password_hash=hash_password(secrets.token_urlsafe(48)), role="customer", is_active=True, customer_id=customer.id)
     db.add(user)
     try:
         db.flush()
-        db.add(PasswordResetToken(user_id=user.id, token_hash=hashlib.sha256(reset_token.encode()).hexdigest(),
-            expires_at=datetime.now(timezone.utc) + timedelta(minutes=30)))
+        from app.routers.auth import create_password_reset_token
+        reset_token = create_password_reset_token(db, user)
         if not send_password_reset_email(user.email, reset_token):
             db.rollback()
             raise HTTPException(503, "Email delivery is not configured; portal invitation was not created")

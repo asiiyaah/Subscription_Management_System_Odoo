@@ -1,66 +1,90 @@
 # SubscriptIQ Backend API
 
-Generated against FastAPI OpenAPI on 2026-10-31. Interactive Swagger UI is available at `/docs` when the server is running; the schema is at `/openapi.json`.
+Verified 2026-10-31 against FastAPI OpenAPI (80 paths). Interactive Swagger is at `/docs`; the schema is at `/openapi.json`.
 
-## Conventions
+## Shared conventions
 
-- Feature routes are under `/api` and require `Authorization: Bearer <access_token>` unless noted.
-- UUID identifiers are serialized as strings.
-- Paginated staff lists return `{items, total, page, page_size}`. Portal and some report endpoints return `{items, count}` or `{items}` as described by their routes.
-- Validation errors use FastAPI's standard `detail` response.
-- Money is calculated with Python `Decimal`; clients should render returned totals and not recalculate them.
-- Roles are `admin`, `staff`, and `customer`. Admin owns restricted settings and user management. Staff has operational access. Customer-facing subscription, invoice, payment, and profile reads are scoped to `User.customer_id`.
+- API routes use the `/api` prefix. Protected routes use `Authorization: Bearer <access_token>`.
+- Roles are `admin`, `staff`, and `customer`; admin-only operations enforce role checks in the backend.
+- Database UUIDs are serialized as strings. Financial arithmetic uses `Decimal`; JSON monetary values remain numbers where the frontend TypeScript contracts require numbers.
+- Dates use `YYYY-MM-DD`, datetimes use ISO 8601, and validation errors use FastAPI's `{ "detail": ... }` format.
+- Paginated resources use `{items, total, page, page_size}` unless the resource description states otherwise.
+- Customer requests are scoped by the authenticated user's linked `customer_id`.
 
-## Health
+## Health and authentication
 
-| Method | Path | Access |
-| --- | --- | --- |
-| GET | `/` | Public |
-| GET | `/api/health` | Public |
-| GET | `/api/health/db` | Public; database probe |
+| Method | Path | Access | Notes |
+| --- | --- | --- | --- |
+| GET | `/`, `/api/health` | Public | Application health |
+| GET | `/api/health/db` | Public | Database probe |
+| POST | `/api/auth/signup` | Public | Creates a customer account; caller cannot choose a privileged role |
+| POST | `/api/auth/login` | Public | JSON email/password login; updates `last_login` |
+| GET | `/api/auth/me` | Authenticated | Current user |
+| POST | `/api/auth/logout` | Authenticated | Revokes current token |
+| POST | `/api/auth/forgot-password` | Public | Non-enumerating reset request |
+| POST | `/api/auth/reset-password` | Public | Consumes single-use reset/invitation token |
+| POST | `/api/auth/change-password` | Authenticated | Changes password and invalidates old password-version tokens |
 
-## Authentication
+Password reset and invitations require SMTP for delivery. With SMTP unset, the API remains available and logs delivery status without disclosing account existence.
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| POST | `/api/auth/signup` | Customer registration; returns `{user}` |
-| POST | `/api/auth/login` | JSON email/password login; returns bearer token and user |
-| GET | `/api/auth/me` | Current user |
-| POST | `/api/auth/logout` | Persist token revocation |
-| POST | `/api/auth/forgot-password` | Non-enumerating reset email request |
-| POST | `/api/auth/reset-password` | Consume one-use, 30-minute reset token |
-| POST | `/api/auth/change-password` | Authenticated password change; prior tokens become invalid |
+## Products, plans, customers, and quotations
 
-Password policy: more than eight characters with uppercase, lowercase, and special characters. Configure SMTP variables to deliver reset links and portal invites.
+- Products: `GET/POST /api/products`, `GET/PATCH/PUT/DELETE /api/products/{product_id}`, `GET /api/products/options`.
+- Product attributes and values: `POST /api/products/{product_id}/attributes`; `PATCH/DELETE /api/products/{product_id}/attributes/{attribute_id}`; `POST /api/products/{product_id}/attributes/{attribute_id}/values`; `PATCH/DELETE /api/products/{product_id}/attributes/{attribute_id}/values/{value_id}`; `PUT/DELETE /api/product-attribute-values/{value_id}`. Product taxes: `GET/PUT /api/products/{product_id}/taxes`.
+- Plans: `GET/POST /api/plans`, `GET/PATCH/DELETE /api/plans/{plan_id}`. Supported periods are daily, weekly, monthly, yearly; filters include status, product, and search.
+- Customers (admin/staff): `GET/POST /api/customers`, `GET/PATCH/PUT/DELETE /api/customers/{customer_id}`, `POST /api/customers/{customer_id}/invite`. Detail returns linked subscriptions, invoices, payments, and activity.
+- Quotation templates (admin/staff): `GET/POST /api/quotation-templates`, `GET/PUT/DELETE /api/quotation-templates/{template_id}`. Subscription creation from template: `POST /api/subscriptions/from-template`.
 
-## Catalog and customers
+## Taxes and discounts
 
-- Products: `GET/POST /api/products`, `GET/PATCH/DELETE /api/products/{product_id}`. Search uses `q`; list supports `status`, `page`, and `page_size`. Product attributes and values support nested creation plus add/update/delete routes under `/api/products/{product_id}/attributes`; variant prices are returned as `extra_price`. Product tax rules use `GET/PUT /api/products/{product_id}/taxes`.
-- Plans: `GET/POST /api/plans`, `GET/PATCH/DELETE /api/plans/{plan_id}`. Filters include `q`, `status`, `product_id`, `page`, and `page_size`. Periods are daily, weekly, monthly, yearly. Plan fields include minimum quantity, trial days, pausing, renewal, early closure, auto-close, and availability dates.
-- Customers: `GET/POST /api/customers`, `GET/PATCH/DELETE /api/customers/{customer_id}`. Staff/admin only. Customer details include subscriptions, invoices, payments, and linked activity. `POST /api/customers/{customer_id}/invite` requires SMTP delivery.
-- Quotation templates: `GET/POST /api/quotation-templates`, `GET/PUT/DELETE /api/quotation-templates/{template_id}`. Templates contain validated product/plan lines, payment terms, and validity days.
-- Taxes: `GET/POST /api/taxes`, `PATCH/DELETE /api/taxes/{tax_id}`. Types are percentage and fixed; a partial unique index allows one default tax.
-- Discounts: `GET/POST /api/discounts`, `PATCH/DELETE /api/discounts/{discount_id}`, `POST /api/discounts/validate`. Supports unique code, percentage/fixed value, minimum quantity/purchase, dates, limit, and applicable products.
+- Taxes: `GET/POST /api/taxes`, `PATCH/PUT/DELETE /api/taxes/{tax_id}`, `POST /api/taxes/{tax_id}/default`. Supports percentage and fixed rates plus product rules. The default tax cannot be deactivated/deleted until another tax is made default.
+- Discounts: `GET/POST /api/discounts`, `GET /api/discounts/counts`, `PATCH/PUT/DELETE /api/discounts/{discount_id}`, `POST /api/discounts/validate`. Validation covers active dates, codes, product applicability, minimum amount/quantity, and usage limit. Used discounts cannot be deleted.
 
-## Subscriptions and billing
+## Subscriptions and pricing
 
-- Subscriptions: `GET/POST /api/subscriptions`, `POST /api/subscriptions/preview`, `GET/PATCH /api/subscriptions/{subscription_id}`, and `POST /api/subscriptions/{subscription_id}/{action}`. Actions are `confirm`, `activate`, `pause`, `resume`, `renew`, and `close`. Creation can use saved quotation templates with `POST /api/subscriptions/from-template`.
-- Transitions are validated and written to subscription history. Price preview and creation resolve product, plan, variant, tax, and discount data on the server.
-- Invoices: `GET /api/invoices`, `GET /api/invoices/{invoice_id}`, `POST /api/invoices/{invoice_id}/confirm`, `/send`, `/cancel`, `GET /api/invoices/due-preview`, `POST /api/invoices/generate-due`. Sending emails the customer and updates status only after successful SMTP delivery.
-- Due preview is read-only. Generation locks subscriptions and relies on the existing unique subscription/date invoice index; it returns `{created, skipped}`. A new migration adds other fields/tables and must be applied before using those schema features.
-- Payments: `GET/POST /api/payments`, `GET /api/payments/{payment_id}`. Methods: cash, bank transfer, UPI, card, cheque. Invoice and payment balances update in one transaction; overpayments are rejected.
+- `GET/POST /api/subscriptions`, `POST /api/subscriptions/preview`, `GET/PATCH /api/subscriptions/{subscription_id}`, `POST /api/subscriptions/{subscription_id}/{action}`.
+- Actions: `confirm`, `activate`, `pause`, `resume`, `renew`, `close`. State changes are validated and written to subscription history.
+- Preview/create pricing resolve product prices, variant additions, quantity, applicable taxes, and discounts on the server. Client prices and totals are not trusted.
 
-## Analytics, reports, AI, portal, administration
+## Invoices and payments
+
+- Invoices: `GET /api/invoices`, `GET /api/invoices/summary`, `GET /api/invoices/due-preview`, `POST /api/invoices/generate-due`, `GET /api/invoices/{invoice_id}`, `POST /api/invoices/{invoice_id}/confirm`, `/send`, `/cancel`.
+- Invoice listing accepts `status`, `overdue`, `customer_id`, `subscription_id`, `q`/`search`, `sort_by`, `sort_dir`, `page`, and `page_size`. `status=confirmed` includes open, sent, partial, and confirmed database states. Detail includes lines, tax/discount breakdown, and payment history.
+- Due preview is read-only. Generation creates draft invoices, locks subscriptions, and relies on a unique subscription/billing-period key for idempotency. Response: `{created, skipped, invoice_ids}`.
+- Payments: `GET/POST /api/payments`, `GET /api/payments/summary`, `GET /api/payments/{payment_id}`. Listing accepts search, method, date range, customer/invoice, sort, and pagination. Methods include cash, bank transfer, UPI, card, cheque. Payment creation returns the updated invoice; overpayment is 422 and draft/cancelled invoice payment is 409.
+
+## Analytics and reports
 
 - Analytics: `GET /api/analytics/summary`, `/revenue-over-time`, `/revenue-by-plan`, `/expiring-subscriptions`, `/recent-activity`.
-- Reports: `GET /api/reports/subscriptions`, `/payments`, `/revenue`, `/overdue-invoices`. `export=true` returns CSV where supported. Filters include date range, customer, plan, product, and subscription status where applicable.
-- AI: `POST /api/ai/chat`, `GET /api/ai/conversations/{conversation_id}`, `POST /api/ai/approve`. Tools are allowlisted and operate through fixed ORM queries/services. Reminder delivery requests are queued for admin approval; approved delivery uses the SMTP reminder service and deduplication log. Without a configured provider key, chat responds with an availability message and other APIs continue working.
-- Portal: `GET /api/portal/summary`, `/subscriptions`, `/subscriptions/{subscription_id}`, `/invoices`, `/invoices/{invoice_id}`, `/payments`, `/profile`; `PATCH /api/portal/profile`; subscription self-service uses `POST /api/portal/subscriptions/{subscription_id}/{action}`.
-- Users: `GET/POST /api/users`, `PATCH /api/users/{user_id}`. Admin only; the last active administrator cannot be removed.
-- Settings: `GET/PATCH /api/settings` (admin/staff read, admin write), `GET/PATCH /api/settings/profile`.
+- Combined report: `GET /api/reports` accepts inclusive `date_from`, `date_to`, `plan` (plan name) or `plan_id`, and `customer_id`. It returns summary, monthly and plan revenue, six subscription statuses, subscriptions (max 100), monthly/method/payment detail, payment timing, outstanding by month, overdue aging, and overdue invoices. Date filters apply to financial flows; point-in-time subscription and balance fields respect plan/customer filters.
+- Dropdown data: `GET /api/reports/options` returns active plan names and customers.
+- Existing raw reports remain: `GET /api/reports/subscriptions`, `/payments`, `/revenue`, `/overdue-invoices`; `export=true` returns CSV where supported.
 
-## Environment variables
+## Portal, users, and settings
 
-Required existing names: `DATABASE_URL`, `SECRET_KEY`. Optional: `ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES`, `FRONTEND_URL`, `AI_PROVIDER`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_STARTTLS`, `ENABLE_AUTOMATION`, `AUTO_GENERATE_DUE_INVOICES`, `AUTO_CLOSE_EXPIRED_SUBSCRIPTIONS`.
+- Portal routes require a linked customer account: `GET/PATCH /api/portal/profile`, `GET /api/portal/summary`, `GET /api/portal/subscriptions`, `GET /api/portal/subscriptions/{subscription_id}`, `POST /api/portal/subscriptions/{subscription_id}/{action}`, `GET /api/portal/invoices`, `GET /api/portal/invoices/{invoice_id}`, `GET /api/portal/payments`. Draft invoices are hidden and cross-customer records return 404.
+- Business details readable to any authenticated account: `GET /api/settings/business`.
+- Users (admin only): `GET/POST /api/users`, `GET /api/users/counts`, `PATCH /api/users/{user_id}`, `POST /api/users/{user_id}/password-reset`. User listing omits customers by default; `active`, role, search, and pagination filters are available. `send_invite=true` uses the reset-token flow.
+- Settings: `GET/PATCH /api/settings` (admin/staff read; admin write), `GET/PATCH /api/settings/profile`. Business settings include GSTIN, bank details, invoice schedule, renewal reminder interval, and overdue reminder interval; GSTIN and IFSC are validated.
 
-The Alembic feature revision is `c91a4b7d2e10`; apply with `alembic upgrade head` after confirming the configured database is the intended environment.
+## AI assistant
+
+- `POST /api/ai/chat`, `GET /api/ai/conversations/{conversation_id}`, `POST /api/ai/actions/{action_id}/approve`, `/reject`, and backward-compatible `POST /api/ai/approve`.
+- AI can only use allowlisted ORM/service tools. Consequential invoice/reminder actions are stored for administrator approval. No configured provider key produces a valid unavailable reply rather than blocking the rest of the API.
+
+## Environment and startup
+
+Configure `backend/.env` using `backend/.env.example`: `DATABASE_URL`, `SECRET_KEY`; optional `APP_ENV`, `DEBUG`, `ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES`, `FRONTEND_URL`, `AI_PROVIDER`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_STARTTLS`, `ENABLE_AUTOMATION`, `AUTO_GENERATE_DUE_INVOICES`, and `AUTO_CLOSE_EXPIRED_SUBSCRIPTIONS`.
+
+PowerShell, from `backend`:
+
+```powershell
+.\venv\Scripts\Activate.ps1
+uvicorn app.main:app --reload
+```
+
+Migrations are managed only through Alembic. Check the target before applying pending migrations with `python -m alembic current` and `python -m alembic upgrade head`.
+
+## Contract-source notes
+
+The checked-in frontend contracts for invoices, reports, and AI were reviewed alongside `frontend/src/types`. The referenced `API_SETTINGS_PORTAL_CONTRACT.md`, `API_USERS_CONTRACT.md`, and `BACKEND_INTEGRATION.md` files are not present in this checkout; those areas were checked against the API routers and available TypeScript types instead.

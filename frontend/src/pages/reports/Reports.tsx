@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { SummaryCard } from "@/components/common/SummaryCard";
 import { Tabs } from "@/components/common/Tabs";
 import { PaymentMethodBadge } from "@/components/payments/PaymentMethodBadge";
+import { CumulativeLines, Donut, foldToSlices, Funnel, Histogram, RingGauge, TrendArea } from "@/components/reports/InsightCharts";
 import { ChartCard, Legend, MonthlyBars, RankedBars } from "@/components/reports/ReportCharts";
 import { downloadCsv, ReportTable, type ReportColumn } from "@/components/reports/ReportTable";
 import { Button } from "@/components/ui/Button";
@@ -140,7 +141,7 @@ export default function Reports() {
       date_from: range.from || presetRange(DEFAULT_PERIOD).from,
       date_to: range.to || isoDate(new Date()),
       plan: params.get("plan") ?? undefined,
-      customer_id: params.get("customer") ? Number(params.get("customer")) : undefined,
+      customer_id: params.get("customer") || undefined,
     };
   }, [params, period]);
   const rangeInvalid = filters.date_from > filters.date_to;
@@ -288,30 +289,48 @@ export default function Reports() {
 }
 
 // --- Tabs ----------------------------------------------------------------------------
+// Chart choices: monthly comparisons → bars; running totals / balances over time → lines;
+// one headline ratio → ring; part-to-whole (≤3) → donut; ordered stages/buckets → ordinal-ramp funnel/histogram.
+
+/** Running totals for the burn-up chart (display transform of the API's monthly sums). */
+function cumulative(rows: ReportData["revenue_by_month"]) {
+  let invoiced = 0;
+  let collected = 0;
+  return rows.map((r) => {
+    invoiced += r.invoiced;
+    collected += r.collected;
+    return { month: r.month, invoiced, collected };
+  });
+}
 
 function RevenueTab({ data }: { data: ReportData }) {
+  const { invoiced, collected } = data.summary;
+  const rate = invoiced > 0 ? Math.round((collected / invoiced) * 100) : null;
+  const twoSeries = [
+    { key: "invoiced", label: "Invoiced", color: CHART.series1 },
+    { key: "collected", label: "Collected", color: CHART.series2 },
+  ];
+  const legend = <Legend items={twoSeries} />;
+
   return (
     <>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <ChartCard
-          title="Invoiced vs collected"
-          subtitle="By month, including taxes"
-          legend={
-            <Legend
-              items={[
-                { label: "Invoiced", color: CHART.series1 },
-                { label: "Collected", color: CHART.series2 },
-              ]}
+        <ChartCard title="Invoiced vs collected" subtitle="By month, including taxes" legend={legend}>
+          <MonthlyBars data={data.revenue_by_month} series={twoSeries} />
+        </ChartCard>
+        <ChartCard title="Collection rate" subtitle="Collected ÷ invoiced in the period">
+          <div className="flex h-[260px] items-center justify-center">
+            <RingGauge
+              percent={rate}
+              label={rate === null ? "Nothing invoiced yet" : rate >= 90 ? "Healthy collections" : rate >= 70 ? "Some catching up to do" : "Collections are lagging"}
+              caption={`${formatCurrency(collected)} collected of ${formatCurrency(invoiced)} invoiced`}
             />
-          }
-        >
-          <MonthlyBars
-            data={data.revenue_by_month}
-            series={[
-              { key: "invoiced", label: "Invoiced", color: CHART.series1 },
-              { key: "collected", label: "Collected", color: CHART.series2 },
-            ]}
-          />
+          </div>
+        </ChartCard>
+      </div>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <ChartCard title="Revenue burn-up" subtitle="Running totals — the gap between the lines is still owed" legend={legend}>
+          <CumulativeLines data={cumulative(data.revenue_by_month)} series={twoSeries} />
         </ChartCard>
         <ChartCard title="Invoiced by plan" subtitle="In the selected period">
           <RankedBars
@@ -330,27 +349,53 @@ function RevenueTab({ data }: { data: ReportData }) {
 }
 
 function SubscriptionsTab({ data }: { data: ReportData }) {
+  const count = (status: string) => data.subscriptions_by_status.find((s) => s.status === status)?.count ?? 0;
+  // "Reached at least this stage" — e.g. everything past draft was quoted.
+  const created = data.subscriptions_by_status.reduce((sum, s) => sum + s.count, 0);
+  const quoted = created - count("draft");
+  const confirmed = quoted - count("quotation");
+  const activated = confirmed - count("confirmed");
+  const stillActive = count("active");
+
   return (
     <>
       <div className="grid gap-6 lg:grid-cols-2">
-        <ChartCard title="Subscriptions by status" subtitle="Today · Draft → Quotation → Confirmed → Active → Closed">
-          <RankedBars
-            format="number"
-            rows={data.subscriptions_by_status.map((r) => ({ key: r.status, label: <StatusBadge status={r.status} />, value: r.count }))}
+        <ChartCard title="MRR share by plan" subtitle="Active subscriptions, monthly value">
+          <Donut
+            format="currency"
+            centerLabel="MRR"
+            slices={foldToSlices(data.subscriptions_by_plan, (r) => r.plan, (r) => r.mrr)}
           />
         </ChartCard>
-        <ChartCard title="MRR by plan" subtitle="Active subscriptions only">
-          <RankedBars
-            rows={data.subscriptions_by_plan.map((r) => ({
-              key: r.plan,
-              label: r.plan,
-              value: r.mrr,
-              hint: `${r.count} active subscription${r.count === 1 ? "" : "s"}`,
-            }))}
-            empty="No active subscriptions for these filters."
+        <ChartCard title="Quote to active" subtitle={`Of ${formatNumber(created)} subscriptions created, how far each got`}>
+          <Funnel
+            stages={[
+              { label: "Quoted", value: quoted },
+              { label: "Confirmed", value: confirmed },
+              { label: "Activated", value: activated },
+              { label: "Still active", value: stillActive, hint: `${count("paused")} paused · ${count("closed")} closed` },
+            ]}
           />
         </ChartCard>
       </div>
+      <ChartCard title="Subscriptions by status" subtitle="Today · Draft → Quotation → Confirmed → Active → Closed">
+        <div className="grid gap-x-10 sm:grid-cols-2">
+          <RankedBars
+            format="number"
+            rows={data.subscriptions_by_status
+              .slice(0, 3)
+              .map((r) => ({ key: r.status, label: <StatusBadge status={r.status} />, value: r.count }))}
+          />
+          <div className="mt-3.5 sm:mt-0">
+            <RankedBars
+              format="number"
+              rows={data.subscriptions_by_status
+                .slice(3)
+                .map((r) => ({ key: r.status, label: <StatusBadge status={r.status} />, value: r.count }))}
+            />
+          </div>
+        </div>
+      </ChartCard>
       <ReportTable
         title="Subscriptions"
         subtitle="Filtered by plan and customer (not by date)"
@@ -381,6 +426,28 @@ function PaymentsTab({ data }: { data: ReportData }) {
           />
         </ChartCard>
       </div>
+      <ChartCard
+        title="Time to pay"
+        subtitle="Days from invoice date to payment — brighter bars are slower payers"
+        legend={
+          data.avg_days_to_pay !== null && (
+            <p className="text-right">
+              <span className="block text-2xl font-extrabold tabular-nums">{data.avg_days_to_pay} days</span>
+              <span className="text-xs text-muted">average</span>
+            </p>
+          )
+        }
+      >
+        {data.payment_timing.length === 0 ? (
+          <p className="py-10 text-center text-sm text-muted">
+            {data.avg_days_to_pay !== null ? "A day-by-day breakdown isn't available yet — the average is shown above." : "No payments in this period."}
+          </p>
+        ) : data.payment_timing.every((b) => b.count === 0) ? (
+          <p className="py-10 text-center text-sm text-muted">No payments in this period.</p>
+        ) : (
+          <Histogram data={data.payment_timing.map((b) => ({ bucket: b.bucket, value: b.count }))} />
+        )}
+      </ChartCard>
       <ReportTable
         title="Payments"
         subtitle={
@@ -398,29 +465,47 @@ function PaymentsTab({ data }: { data: ReportData }) {
 }
 
 function OverdueTab({ data }: { data: ReportData }) {
+  const first = data.outstanding_by_month[0]?.outstanding ?? 0;
+  const last = data.outstanding_by_month.at(-1)?.outstanding ?? 0;
+  const change = last - first;
   return (
     <>
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-        <ChartCard title="Overdue by age" subtitle="Unpaid balance, today">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <ChartCard
+          title="Outstanding burn-down"
+          subtitle="Unpaid balance at each month end — it should trend down"
+          legend={
+            data.outstanding_by_month.length > 1 && (
+              <p className={cn("text-right text-sm font-semibold", change > 0 ? "text-danger" : "text-success")}>
+                {change > 0 ? "▲" : "▼"} {formatCurrency(Math.abs(change))}
+                <span className="block text-xs font-normal text-muted">since {formatMonth(data.outstanding_by_month[0].month)}</span>
+              </p>
+            )
+          }
+        >
+          <TrendArea data={data.outstanding_by_month} dataKey="outstanding" label="Outstanding" />
+        </ChartCard>
+        <ChartCard title="Overdue by age" subtitle="Unpaid balance today — brighter is older">
           <RankedBars
-            rows={data.overdue_aging.map((r) => ({
+            rows={data.overdue_aging.map((r, i) => ({
               key: r.bucket,
               label: r.bucket,
               value: r.amount,
               hint: `${r.count} invoice${r.count === 1 ? "" : "s"}`,
+              color: CHART.ordinal[i],
             }))}
             empty="Nothing is overdue."
           />
         </ChartCard>
-        <ReportTable
-          title="Overdue invoices"
-          subtitle="Oldest first — chase these before they turn into lost revenue"
-          columns={OVERDUE_COLUMNS}
-          rows={data.overdue}
-          rowKey={(r) => r.id}
-          empty="Nothing is overdue. 🎉"
-        />
       </div>
+      <ReportTable
+        title="Overdue invoices"
+        subtitle="Oldest first — chase these before they turn into lost revenue"
+        columns={OVERDUE_COLUMNS}
+        rows={data.overdue}
+        rowKey={(r) => r.id}
+        empty="Nothing is overdue. 🎉"
+      />
     </>
   );
 }

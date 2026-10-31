@@ -30,6 +30,12 @@ export const tokenStorage = {
     store.setItem(USER_KEY, JSON.stringify(user));
   },
 
+  /** Replace the stored user (e.g. after editing your name), keeping the same storage and token. */
+  updateUser(user: User): void {
+    const store = localStorage.getItem(TOKEN_KEY) ? localStorage : sessionStorage;
+    store.setItem(USER_KEY, JSON.stringify(user));
+  },
+
   clear(): void {
     for (const store of storages()) {
       store.removeItem(TOKEN_KEY);

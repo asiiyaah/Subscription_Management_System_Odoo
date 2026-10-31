@@ -8,7 +8,7 @@ from sqlalchemy import text
 from app.core.config import settings
 from app.database.connection import get_db
 from app.routers.auth import router as auth_router
-from app.routers.products import router as products_router
+from app.routers.products import router as products_router, variant_router as product_variant_router
 from app.routers.plans import router as plans_router
 from app.routers.customers import router as customers_router
 from app.routers.subscriptions import router as subscriptions_router
@@ -50,6 +50,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(products_router)
+app.include_router(product_variant_router)
 app.include_router(plans_router)
 app.include_router(customers_router)
 app.include_router(subscriptions_router)

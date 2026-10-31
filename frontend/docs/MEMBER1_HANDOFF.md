@@ -219,6 +219,7 @@ git push -u origin frontend-member-1
 | Subscription form applies a discount code | ✅ Ready: `discountService.validate({ code, subtotal, quantity, product_ids })` from `services/discountService.ts` returns `{ valid: true, discount }` or `{ valid: false, reason }` — show `reason` under the code field. Try `SEATS10` (needs 5+ seats) or `WELCOME500` (needs ₹1,999+). |
 | Product pickers | `lookupService.products()` (`services/lookupService.ts`) returns `{ id, name }[]`. When your `productService` exists, point the mock at your product data so names stay in sync. |
 | Customer detail → Invoices / Payments tabs | Same: use my `InvoiceTable` / `PaymentTable` with a `customerId` prop. |
+| Customer portal → My subscriptions | ✅ Route file ready: `pages/portal/subscriptions/routes.tsx` (placeholders for `subscriptions` and `subscriptions/:id` under `/portal`). Replace them with your pages; they render inside my `PortalLayout`. Use `portalService`-style scoping: the customer comes from the token. Portal Home already links to `/portal/subscriptions/:id`. |
 | Dashboard "Ask AI" box | ✅ Ready: navigate to `/assistant?q=${encodeURIComponent(question)}` — the assistant opens and asks it straight away. |
 | Dashboard overdue invoices card | Read from `/api/analytics/*` (yours); "View all" links to `/invoices?overdue=true` (mine). |
 | Invoices link back to subscriptions | I'll link to `/subscriptions/:id` — please keep that route. |

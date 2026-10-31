@@ -2,12 +2,13 @@ import { useId } from "react";
 import { Check } from "lucide-react";
 import { Skeleton } from "@/components/common/States";
 import { cn } from "@/lib/cn";
+import type { Id } from "@/types/common";
 
 interface CheckboxListProps {
   label: string;
-  options: Array<{ id: number; name: string }> | undefined;
-  selected: number[];
-  onChange: (selected: number[]) => void;
+  options: Array<{ id: Id; name: string }> | undefined;
+  selected: Id[];
+  onChange: (selected: Id[]) => void;
   error?: string;
 }
 
@@ -15,7 +16,7 @@ interface CheckboxListProps {
 export function CheckboxList({ label, options, selected, onChange, error }: CheckboxListProps) {
   const labelId = useId();
 
-  function toggle(id: number) {
+  function toggle(id: Id) {
     onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
   }
 

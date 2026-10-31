@@ -33,14 +33,20 @@ export function formatNumber(value: number): string {
   return number.format(value);
 }
 
-/** 31 Oct 2026 */
-export function formatDate(value: string | Date): string {
-  return date.format(new Date(value));
+const isValid = (d: Date) => !Number.isNaN(d.getTime());
+
+/** 31 Oct 2026 — or "—" when the backend sent no date. */
+export function formatDate(value: string | Date | null | undefined): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  return isValid(d) ? date.format(d) : "—";
 }
 
-/** 31 Oct 2026, 2:30 pm */
-export function formatDateTime(value: string | Date): string {
-  return dateTime.format(new Date(value));
+/** 31 Oct 2026, 2:30 pm — or "—" when missing. */
+export function formatDateTime(value: string | Date | null | undefined): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  return isValid(d) ? dateTime.format(d) : "—";
 }
 
 /** Whole days from today to `value` (negative = in the past). */
@@ -59,4 +65,9 @@ export function formatRelativeDays(value: string | Date): string {
   if (days === 1) return "Tomorrow";
   if (days === -1) return "Yesterday";
   return days > 0 ? `in ${days} days` : `${-days} days ago`;
+}
+
+/** Date → "YYYY-MM-DD" in the user's time zone (for <input type="date"> and API params). */
+export function toIsoDate(date: Date = new Date()): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }

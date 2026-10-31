@@ -34,6 +34,7 @@ class Invoice(Base):
     )
     invoice_date: Mapped[date] = mapped_column(Date)
     due_date: Mapped[date] = mapped_column(Date)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str | None] = mapped_column(
         String(20), server_default=text("'draft'")
     )

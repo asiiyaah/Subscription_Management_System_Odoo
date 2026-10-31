@@ -8,7 +8,9 @@ import {
   Layers,
   Package,
   Repeat,
+  Settings,
   TicketPercent,
+  UserCog,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -36,4 +38,6 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Discounts", to: "/discounts", icon: TicketPercent, roles: STAFF },
   { label: "Taxes", to: "/taxes", icon: Percent, roles: ["admin"] },
   { label: "Reports", to: "/reports", icon: BarChart3, roles: STAFF },
+  { label: "Users & staff", to: "/users", icon: UserCog, roles: ["admin"] },
+  { label: "Settings", to: "/settings", icon: Settings, roles: STAFF },
 ];

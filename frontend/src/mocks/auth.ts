@@ -1,6 +1,9 @@
 // In-browser stand-in for the auth API until the backend is ready.
 // Users and reset tokens are kept in localStorage so sign-up → login works across reloads.
 import { ApiError } from "@/services/api";
+import { isPasswordValid } from "@/lib/password";
+import type { ChangePasswordRequest, Profile, ProfileUpdate } from "@/types/settings";
+import type { Id } from "@/types/common";
 import type {
   ForgotPasswordRequest,
   LoginRequest,
@@ -12,8 +15,15 @@ import type {
   User,
 } from "@/types/auth";
 
-interface MockUser extends User {
+export interface MockUser extends User {
   password: string;
+  /** false = disabled by an admin; can't log in. Missing = true. */
+  active?: boolean;
+  last_login?: string | null;
+  created_at?: string;
+  phone?: string;
+  company?: string;
+  billing_address?: string;
 }
 
 const USERS_KEY = "subscriptiq.mock.users";
@@ -23,17 +33,17 @@ const RESET_TTL_MS = 30 * 60 * 1000;
 const SEED_USERS: MockUser[] = [
   { id: 1, name: "Admin", email: "admin@subscriptiq.com", role: "admin", password: "Admin@1234" },
   { id: 2, name: "Riya Staff", email: "staff@subscriptiq.com", role: "staff", password: "Staff@1234" },
-  { id: 3, name: "Acme Retail", email: "customer@acmeretail.in", role: "customer", password: "Customer@1234" },
+  { id: 3, name: "Acme Retail", email: "customer@acmeretail.in", role: "customer", password: "Customer@1234", company: "Acme Retail" },
 ];
 
 const delay = (ms = 600) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function loadUsers(): MockUser[] {
+export function loadUsers(): MockUser[] {
   const raw = localStorage.getItem(USERS_KEY);
   return raw ? (JSON.parse(raw) as MockUser[]) : [...SEED_USERS];
 }
 
-function saveUsers(users: MockUser[]): void {
+export function saveUsers(users: MockUser[]): void {
   localStorage.setItem(USERS_KEY, JSON.stringify(users));
 }
 
@@ -41,8 +51,8 @@ function loadResetTokens(): Record<string, { email: string; expires: number }> {
   return JSON.parse(localStorage.getItem(RESET_KEY) ?? "{}");
 }
 
-function publicUser({ password: _password, ...user }: MockUser): User {
-  return user;
+function publicUser({ id, name, email, role }: MockUser): User {
+  return { id, name, email, role };
 }
 
 export const mockAuth = {
@@ -52,6 +62,10 @@ export const mockAuth = {
     if (!user || user.password !== password) {
       throw new ApiError(401, "Incorrect email or password.");
     }
+    if (user.active === false) {
+      throw new ApiError(403, "This account has been disabled. Contact your admin.");
+    }
+    saveUsers(loadUsers().map((u) => (u.id === user.id ? { ...u, last_login: new Date().toISOString() } : u)));
     return { access_token: `mock-token-${user.id}`, token_type: "bearer", user: publicUser(user) };
   },
 
@@ -62,11 +76,14 @@ export const mockAuth = {
       throw new ApiError(409, "An account with this email already exists.");
     }
     const user: MockUser = {
-      id: Math.max(...users.map((u) => u.id)) + 1,
+      id: Math.max(...users.map((u) => Number(u.id) || 0)) + 1, // mock ids are numbers
       name: data.name,
       email: data.email,
       role: "customer",
       password: data.password,
+      phone: data.phone,
+      company: data.company,
+      created_at: new Date().toISOString(),
     };
     saveUsers([...users, user]);
     return { user: publicUser(user) };
@@ -99,5 +116,35 @@ export const mockAuth = {
     delete tokens[token];
     localStorage.setItem(RESET_KEY, JSON.stringify(tokens));
     return { message: "Your password has been reset. You can now log in." };
+  },
+};
+
+/** The signed-in user's own account (Settings → Profile, Portal → Profile). The backend uses the JWT for the id. */
+export const mockAccount = {
+  async getProfile(userId: Id): Promise<Profile> {
+    await delay(300);
+    const user = loadUsers().find((u) => u.id === userId);
+    if (!user) throw new ApiError(401, "Please log in again.");
+    const { id, name, email, phone, company, billing_address } = user;
+    return { id, name, email, phone, company, billing_address };
+  },
+
+  async updateProfile(userId: Id, input: ProfileUpdate): Promise<Profile> {
+    await delay();
+    if (!input.name.trim()) throw new ApiError(422, "Name can't be empty.");
+    const users = loadUsers().map((u) => (u.id === userId ? { ...u, ...input, name: input.name.trim() } : u));
+    saveUsers(users);
+    return this.getProfile(userId);
+  },
+
+  async changePassword(userId: Id, { current_password, new_password }: ChangePasswordRequest): Promise<{ message: string }> {
+    await delay();
+    const user = loadUsers().find((u) => u.id === userId);
+    if (!user) throw new ApiError(401, "Please log in again.");
+    if (user.password !== current_password) throw new ApiError(400, "Your current password is incorrect.");
+    if (!isPasswordValid(new_password)) throw new ApiError(422, "The new password doesn't meet the password rules.");
+    if (new_password === current_password) throw new ApiError(422, "Choose a password different from your current one.");
+    saveUsers(loadUsers().map((u) => (u.id === userId ? { ...u, password: new_password } : u)));
+    return { message: "Password changed. Use it next time you log in." };
   },
 };
