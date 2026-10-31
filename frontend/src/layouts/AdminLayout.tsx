@@ -9,7 +9,7 @@ export default function AdminLayout() {
 
   return (
     <div className="flex min-h-dvh">
-      <aside className="sticky top-0 hidden h-dvh shrink-0 lg:block">
+      <aside className="sticky top-0 hidden h-dvh shrink-0 lg:block print:hidden">
         <Sidebar />
       </aside>
 
@@ -28,7 +28,7 @@ export default function AdminLayout() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Header onMenuClick={() => setMenuOpen(true)} />
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 print:p-0">
           <Outlet />
         </main>
       </div>

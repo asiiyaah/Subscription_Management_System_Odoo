@@ -210,7 +210,7 @@ git push -u origin frontend-member-1
 
 | Connection | Agreement |
 |---|---|
-| Subscription detail shows its invoices | I'll export `<InvoiceTable subscriptionId={id} />` from `components/invoices/` — just drop it in. |
+| Subscription detail shows its invoices | ✅ Ready: `import { InvoiceTable } from "@/components/invoices/InvoiceTable"` then `<InvoiceTable subscriptionId={id} />` (or `customerId={id}`). Row actions included. |
 | Subscription form applies a discount code | I'll export `discountService.validate(code)` from `services/discountService.ts`. |
 | Customer detail → Invoices / Payments tabs | Same: use my `InvoiceTable` / `PaymentTable` with a `customerId` prop. |
 | Dashboard overdue invoices card | Read from `/api/analytics/*` (yours); "View all" links to `/invoices?overdue=true` (mine). |

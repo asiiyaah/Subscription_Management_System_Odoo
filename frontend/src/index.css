@@ -28,6 +28,29 @@ body {
   @apply bg-bg font-sans text-ink antialiased;
 }
 
+/* Printing (invoices): plain black-on-white, no app chrome. Hide chrome with Tailwind's `print:hidden`. */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+    color: #111 !important;
+  }
+  .invoice-doc,
+  .invoice-doc * {
+    background: transparent !important;
+    color: #111 !important;
+    border-color: #d4d4d8 !important;
+    box-shadow: none !important;
+  }
+  .invoice-doc {
+    border: 0 !important;
+    padding: 0 !important;
+  }
+}
+
 /* Browser autofill keeps the dark input background */
 input:-webkit-autofill {
   -webkit-text-fill-color: var(--color-ink);
