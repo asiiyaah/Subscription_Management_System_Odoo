@@ -5,7 +5,7 @@ import Login from "@/pages/auth/Login";
 import Signup from "@/pages/auth/Signup";
 import ForgotPassword from "@/pages/auth/ForgotPassword";
 import ResetPassword from "@/pages/auth/ResetPassword";
-import ComingSoon from "@/pages/ComingSoon";
+import PortalLayout from "@/layouts/PortalLayout";
 
 // Member 1 modules
 import { dashboardRoutes } from "@/pages/dashboard/routes";
@@ -22,6 +22,11 @@ import { taxRoutes } from "@/pages/taxes/routes";
 import { aiRoutes } from "@/pages/ai/routes";
 import { reportRoutes } from "@/pages/reports/routes";
 import { userRoutes } from "@/pages/users/routes";
+import { settingsRoutes } from "@/pages/settings/routes";
+import { portalRoutes } from "@/pages/portal/routes";
+
+// Member 1 — customer portal subscriptions
+import { portalSubscriptionRoutes } from "@/pages/portal/subscriptions/routes";
 
 import { devRoutes } from "@/pages/dev/routes";
 
@@ -53,6 +58,7 @@ export function AppRoutes() {
             ...aiRoutes,
             ...reportRoutes,
             ...userRoutes,
+            ...settingsRoutes,
             ...(import.meta.env.DEV ? devRoutes : []),
           ],
         },
@@ -62,7 +68,13 @@ export function AppRoutes() {
     // Customer portal
     {
       element: <ProtectedRoute roles={["customer"]} />,
-      children: [{ path: "/portal", element: <ComingSoon area="Your customer portal" /> }],
+      children: [
+        {
+          path: "/portal",
+          element: <PortalLayout />,
+          children: [...portalRoutes, ...portalSubscriptionRoutes],
+        },
+      ],
     },
 
     { path: "*", element: <Navigate to="/" replace /> },
