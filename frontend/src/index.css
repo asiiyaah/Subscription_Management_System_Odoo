@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+/* SubscriptIQ theme — dark plum + magenta + pink→orange gradient */
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --color-bg: #1a0a2e;
+  --color-surface: #2a1045;
+  --color-surface-2: #3a1657;
+  --color-line: #4a1f6b;
+  --color-primary: #ff2e93;
+  --color-accent: #ff8a3d;
+  --color-violet: #9b3cff;
+  --color-magenta: #e0218a;
+  --color-ink: #f5e9ff;
+  --color-muted: #b9a3cf;
+  --color-success: #2ee6a6;
+  --color-danger: #ff4d6d;
+  --color-warning: #ffc145;
+  --color-info: #4ea8ff;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-bg font-sans text-ink antialiased;
+}
+
+/* Browser autofill keeps the dark input background */
+input:-webkit-autofill {
+  -webkit-text-fill-color: var(--color-ink);
+  -webkit-box-shadow: 0 0 0 1000px var(--color-surface-2) inset;
+  caret-color: var(--color-ink);
+}
