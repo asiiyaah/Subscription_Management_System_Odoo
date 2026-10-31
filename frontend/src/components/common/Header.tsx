@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Bell, Menu, Search } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -38,7 +39,11 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
           <Bell className="size-5" />
           <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-primary" />
         </button>
-        <div className="flex items-center gap-2.5 rounded-full border border-line bg-surface/70 py-1 pl-1 pr-3">
+        <Link
+          to="/settings"
+          title="Your settings"
+          className="flex items-center gap-2.5 rounded-full border border-line bg-surface/70 py-1 pl-1 pr-3 transition hover:border-primary/50"
+        >
           <span className="flex size-8 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-xs font-bold text-white">
             {initials}
           </span>
@@ -46,7 +51,7 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
             <span className="block text-sm font-semibold">{user?.name}</span>
             <span className="block text-xs capitalize text-muted">{user?.role}</span>
           </span>
-        </div>
+        </Link>
       </div>
     </header>
   );

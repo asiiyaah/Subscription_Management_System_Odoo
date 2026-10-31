@@ -1,5 +1,5 @@
-// Seller details printed on invoices.
-// TODO: load from Settings → Business (page A14) once the settings API exists.
+// Default seller details. The live values come from Settings → Business (useBusinessSettings);
+// these seed the mock and are shown until settings load.
 export const BUSINESS = {
   name: "SubscriptIQ Technologies Pvt. Ltd.",
   address: "91 Residency Road, Bengaluru, Karnataka 560025",

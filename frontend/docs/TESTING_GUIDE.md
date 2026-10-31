@@ -1,6 +1,6 @@
-# SubscriptIQ Frontend — Manual Testing Guide (Steps 2–7)
+# SubscriptIQ Frontend — Manual Testing Guide (Steps 2–9)
 
-How to check Invoices, Payments, Discounts & Taxes, the AI Assistant, Reports and Users & Staff by hand.
+How to check Invoices, Payments, Discounts & Taxes, the AI Assistant, Reports, Users & Staff, Settings and the Customer portal by hand.
 Each section has **flows** (a realistic story to walk through) and **checks** (tick them off).
 Requirement IDs (R22, R34 …) refer to [PROBLEM_STATEMENT.md](./PROBLEM_STATEMENT.md).
 
@@ -302,7 +302,8 @@ The finance lead's "one place" page (R37) with filters and a summary view (R38).
 The internal team (R5) — only an admin can add staff (R7). Customers are **not** here; they sign up themselves.
 
 > Demo users are saved in the browser (localStorage), so they **survive a reload** — unlike invoices/payments.
-> To reset them: DevTools → Application → Local Storage → delete `subscriptiq.mock.users`.
+> To reset them: DevTools → Application → Local Storage → delete `subscriptiq.mock.users`
+> (and `subscriptiq.mock.settings` to reset Settings).
 
 ### Flow L: Invite a new staff member and let them in
 1. As **Admin**, open **Users & staff** (sidebar). You see yourself (with a **You** tag) and Riya Staff.
@@ -337,7 +338,69 @@ The internal team (R5) — only an admin can add staff (R7). Customers are **not
 
 ---
 
-## 8. End-to-end flows (run these before the demo)
+## Step 8 — Settings (`/settings`)
+
+Profile and Password for everyone; **Business** and **Automation** tabs for admins only. Settings are saved in the
+browser in demo mode, so they **survive a reload**.
+
+### Flow N: Change the business details printed on invoices
+1. As **Admin** → sidebar **Settings** (or click your avatar, top right) → **Business** tab.
+2. Change **Legal name**, **UPI ID** and **Payment terms** to 30 → the hint under terms says "Net 30".
+3. A sticky bar at the bottom says "You have unsaved changes" → **Save changes** → toast.
+4. Open any invoice → the seller block and **Payment information** show the new name and UPI.
+5. Change something else → **Discard** → fields go back to the saved values.
+
+### Flow O: Change your password
+1. **Password** tab → wrong current password → "Your current password is incorrect." under the field.
+2. New password that breaks a rule → checklist shows what's missing; same as current → error.
+3. Valid change → toast; fields clear. Log out and log in with the **new** password.
+
+### Checks
+- [ ] **Profile** tab: edit your name → **Save profile** → the name updates in the header (top right) immediately.
+      Email is greyed out ("Used to log in"). Save is disabled until you change something.
+- [ ] Business: GSTIN `123` → format error; IFSC `HDFC123` → error; invoice prefix with spaces/lowercase is
+      upper-cased; prefix hints show an example number (`INV-2026-0046`).
+- [ ] **Automation** tab: turning off "Generate invoices automatically" hides the **Run at** time; reminder dropdowns
+      change the sentence under them ("Customers hear about renewals 7 days before…"); Save / Discard work.
+- [ ] The tab is in the URL (`/settings?tab=business`) — refresh keeps it.
+- [ ] As **Staff**: only **Profile** and **Password** tabs; `/settings?tab=business` falls back to Profile.
+- [ ] Phone: fields stack; the save bar stays at the bottom of the screen.
+
+---
+
+## Step 9 — Customer portal (`/portal`)
+
+What a customer sees (R6): only **their own** subscriptions and invoices. Log in with the **Customer** demo button
+(Acme Retail).
+
+### Flow P: A customer checks what they owe and pays
+1. Log in as **Customer** → lands on **/portal** (simple top navigation, no admin sidebar).
+2. Home: "Hi, Acme 👋", three cards (Active subscriptions, Next payment with due date, Total outstanding).
+3. If anything is overdue, a red banner says how much, with a link to that invoice.
+4. **Your subscriptions** lists their plans with ₹/month and next invoice date (clicking opens Member 1's placeholder).
+5. **How to pay** card shows UPI and bank details (from Settings → Business) and which invoice number to quote.
+6. **Recent invoices** → click one → invoice page: same printable layout as admin, but **no** Confirm/Send/Cancel/
+   Record payment buttons — only **Print / save PDF**; unpaid invoices show **How to pay** on the right.
+7. As **Admin** in another browser (or after logging out/in), record a payment on that invoice → back as the
+   customer, refresh → balance and status updated.
+
+### Checks
+- [ ] **My invoices**: tabs All / To pay / Paid; search by invoice number; only Acme Retail's invoices; **no drafts**.
+- [ ] Row **⋯ → Print / save PDF** → invoice page opens and the print dialog appears.
+- [ ] **Security:** open `/portal/invoices/<id of another customer's invoice>` (find one as admin, e.g. Nova Labs)
+      → "Invoice not found" — never another customer's data.
+- [ ] **Profile**: edit phone, company, billing address → save; name change shows in the top-right chip.
+      Change password works like Settings.
+- [ ] Customer opening `/invoices`, `/reports`, `/settings` → sent back to `/portal`.
+- [ ] Staff/Admin opening `/portal` → sent back to the dashboard.
+- [ ] Footer shows the business email and phone from Settings.
+- [ ] **New customer:** Sign up a new account → portal shows "No subscriptions yet" / "No invoices yet",
+      cards show 0 / Nothing due / ₹0.00.
+- [ ] Phone (400 px): nav becomes a scrollable row under the logo; cards stack; How to pay moves below the lists.
+
+---
+
+## 10. End-to-end flows (run these before the demo)
 
 ### E2E 1 — "Billing day to cash" (Steps 2 + 3)
 1. Invoices → **Generate due invoices** → generate.
@@ -362,13 +425,18 @@ The internal team (R5) — only an admin can add staff (R7). Customers are **not
 2. Payments → **This month** → the "Collected this month" card shows the same amount.
 3. Record a payment → back to Reports → Collected has gone up by that amount, Outstanding down.
 
-### E2E 5 — "Permissions" (all steps)
-1. As **Staff**: Discounts read-only, no Taxes, no Users & staff, AI approve disabled, Invoices, Payments & Reports fully usable.
-2. As **Customer**: lands on `/portal` placeholder; opening `/invoices` redirects back to `/portal`.
+### E2E 5 — "Settings flow into documents" (Steps 2 + 8 + 9)
+1. Admin → Settings → Business → change the UPI ID → save.
+2. Admin → open any invoice → Payment information shows the new UPI.
+3. Customer → Portal home → **How to pay** shows the same new UPI.
+
+### E2E 6 — "Permissions" (all steps)
+1. As **Staff**: Discounts read-only, no Taxes, no Users & staff, Settings shows only Profile + Password, AI approve disabled, Invoices, Payments & Reports fully usable.
+2. As **Customer**: lands on `/portal`; sees only Acme Retail's invoices; opening `/invoices` redirects back to `/portal`.
 
 ---
 
-## 9. Reporting a problem
+## 11. Reporting a problem
 
 Copy this into the team chat:
 

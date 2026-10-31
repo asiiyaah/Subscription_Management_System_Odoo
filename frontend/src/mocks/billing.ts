@@ -215,8 +215,9 @@ function toRow(inv: Invoice): InvoiceSummaryRow {
 export const mockInvoices = {
   async list(query: InvoiceListQuery): Promise<Paginated<InvoiceSummaryRow>> {
     await mockDelay();
-    const { overdue, customer_id, subscription_id, ...rest } = query;
+    const { overdue, customer_id, subscription_id, exclude_draft, ...rest } = query as InvoiceListQuery & { exclude_draft?: string };
     let rows = INVOICES.map(toRow);
+    if (exclude_draft === "true") rows = rows.filter((r) => r.status !== "draft");
     if (overdue === "true") rows = rows.filter((r) => r.is_overdue);
     if (customer_id) rows = rows.filter((r) => r.customer_id === Number(customer_id));
     if (subscription_id) rows = rows.filter((r) => r.subscription_id === Number(subscription_id));
@@ -483,4 +484,47 @@ export function billingSnapshot() {
     invoices: INVOICES.map((inv) => structuredClone(refreshOverdue(inv))),
     payments: allPaymentRows(),
   };
+}
+
+// --- Customer portal (mocks/portal.ts) -----------------------------------------------
+
+/** Billing customer for a portal login. The real backend links the user account to the customer record. */
+export function customerIdForName(name: string): number | null {
+  return CUSTOMERS.find((c) => c.name.toLowerCase() === name.trim().toLowerCase())?.id ?? null;
+}
+
+export function portalSummary(customerId: number) {
+  const t = today();
+  const invoices = INVOICES.map(refreshOverdue).filter((inv) => inv.customer_id === customerId && inv.status !== "draft");
+  const unpaid = invoices.filter((inv) => inv.status === "confirmed" && inv.balance > 0).sort((a, b) => a.due_date.localeCompare(b.due_date));
+  const subs = SUBSCRIPTIONS.filter((s) => s.customerId === customerId);
+  return {
+    customer_name: CUSTOMERS.find((c) => c.id === customerId)!.name,
+    active_subscriptions: subs.length,
+    outstanding: round(unpaid.reduce((s, inv) => s + inv.balance, 0)),
+    overdue_amount: round(unpaid.filter((inv) => inv.is_overdue).reduce((s, inv) => s + inv.balance, 0)),
+    next_due: unpaid[0]
+      ? { invoice_id: unpaid[0].id, number: unpaid[0].number, due_date: unpaid[0].due_date, balance: unpaid[0].balance, is_overdue: unpaid[0].is_overdue }
+      : null,
+    subscriptions: subs.map((sub) => {
+      const thisMonth = periodStart(sub, 0);
+      const next = thisMonth > t ? thisMonth : periodStart(sub, 1);
+      return {
+        id: sub.id,
+        number: sub.number,
+        plan_name: sub.plan.name,
+        status: "active" as const,
+        next_invoice_date: iso(next),
+        monthly_amount: monthlyValue(sub),
+      };
+    }),
+    recent_invoices: invoices.sort((a, b) => b.invoice_date.localeCompare(a.invoice_date)).slice(0, 5).map(toRow),
+  };
+}
+
+/** Full invoice only if it belongs to this customer (and isn't a draft) — otherwise "not found". */
+export function portalInvoice(customerId: number, invoiceId: number): Invoice {
+  const invoice = INVOICES.find((inv) => inv.id === invoiceId && inv.customer_id === customerId && inv.status !== "draft");
+  if (!invoice) throw new ApiError(404, "Invoice not found.");
+  return structuredClone(refreshOverdue(invoice));
 }

@@ -8,6 +8,8 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   login: (credentials: LoginRequest, remember: boolean) => Promise<User>;
   logout: () => void;
+  /** Update the signed-in user's details shown in the app (after a profile edit). */
+  updateUser: (changes: Partial<Pick<User, "name">>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -27,9 +29,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const updateUser = useCallback((changes: Partial<Pick<User, "name">>) => {
+    setUser((current) => {
+      if (!current) return current;
+      const next = { ...current, ...changes };
+      tokenStorage.updateUser(next);
+      return next;
+    });
+  }, []);
+
   const value = useMemo(
-    () => ({ user, isAuthenticated: user !== null, login, logout }),
-    [user, login, logout],
+    () => ({ user, isAuthenticated: user !== null, login, logout, updateUser }),
+    [user, login, logout, updateUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

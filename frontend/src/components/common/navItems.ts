@@ -8,6 +8,7 @@ import {
   Layers,
   Package,
   Repeat,
+  Settings,
   TicketPercent,
   UserCog,
   Users,
@@ -38,4 +39,5 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Taxes", to: "/taxes", icon: Percent, roles: ["admin"] },
   { label: "Reports", to: "/reports", icon: BarChart3, roles: STAFF },
   { label: "Users & staff", to: "/users", icon: UserCog, roles: ["admin"] },
+  { label: "Settings", to: "/settings", icon: Settings, roles: STAFF },
 ];
