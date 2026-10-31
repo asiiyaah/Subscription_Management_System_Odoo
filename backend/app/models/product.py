@@ -87,4 +87,4 @@ class ProductTaxRule(Base):
     tax_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("taxes.id", ondelete="RESTRICT"))
 
     product = relationship("Product", back_populates="tax_rules")
-    tax = relationship("Tax")
+    tax = relationship("Tax", back_populates="product_rules")

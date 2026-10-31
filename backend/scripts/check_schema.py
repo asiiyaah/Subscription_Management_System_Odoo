@@ -54,9 +54,39 @@ for table in sorted(model_tables & db_tables):
         if extra_columns:
             print("Missing in models:", extra_columns)
 
-if not missing and not extra and not has_column_differences:
+print("\n========== CONSTRAINT AND RELATIONSHIP COMPARISON ==========")
+has_constraint_differences = False
+
+for table in sorted(model_tables & db_tables):
+    metadata = Base.metadata.tables[table]
+    actual_fks = {
+        (tuple(fk["constrained_columns"]), fk["referred_table"], tuple(fk["referred_columns"]))
+        for fk in inspector.get_foreign_keys(table, schema="public")
+    }
+    expected_fks = {
+        (tuple(constraint.columns.keys()), next(iter(constraint.elements)).column.table.name,
+         tuple(element.column.name for element in constraint.elements))
+        for constraint in metadata.foreign_key_constraints
+    }
+    missing_fks = expected_fks - actual_fks
+    if missing_fks:
+        has_constraint_differences = True
+        print(f"\nTable: {table} — missing foreign keys: {missing_fks}")
+
+    actual_unique = {tuple(item["column_names"]) for item in inspector.get_unique_constraints(table, schema="public")}
+    actual_unique.update(tuple(item["column_names"]) for item in inspector.get_indexes(table, schema="public") if item.get("unique"))
+    expected_unique = {tuple(constraint.columns.keys()) for constraint in metadata.constraints
+        if constraint.__class__.__name__ == "UniqueConstraint"}
+    expected_unique.update(tuple(index.columns.keys()) for index in metadata.indexes if index.unique)
+    missing_unique = expected_unique - actual_unique
+    if missing_unique:
+        has_constraint_differences = True
+        print(f"\nTable: {table} — missing unique constraints/indexes: {missing_unique}")
+
+if not missing and not extra and not has_column_differences and not has_constraint_differences:
     print("\nSUCCESS: Table and column names match!")
 else:
     print("\nFAILED: Schema differences detected!")
+    sys.exit(1)
 
 engine.dispose()

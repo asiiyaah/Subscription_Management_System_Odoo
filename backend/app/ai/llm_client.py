@@ -32,14 +32,15 @@ class OpenAIProvider(LLMProvider):
 
 
 def _system_prompt():
-    return "You are the SubscriptIQ business assistant. Never invent business facts. Choose at most one listed tool and return JSON as {tool: tool_name, arguments: {...}}. For ordinary answers return JSON as {answer: text}. Never request SQL. Tools: get_mrr; get_revenue(start_date,end_date); get_active_subscriptions; get_expiring_subscriptions(days); get_overdue_invoices; get_customer_balance(customer_id); get_revenue_by_plan; generate_due_invoice_preview; prepare_renewal_reminders(days)."
+    return "You are the SubscriptIQ business assistant. Never invent business facts. Choose at most one listed tool and return JSON as {tool: tool_name, arguments: {...}}. For ordinary answers return JSON as {answer: text}. Never request SQL. Tools: get_mrr; get_revenue(start_date,end_date); get_active_subscriptions; get_expiring_subscriptions(days); get_overdue_invoices; get_customer_balance(customer_id); get_revenue_by_plan; get_revenue_summary; get_outstanding_by_customer; get_subscriptions_due_for_billing; create_invoice_drafts(dry_run); generate_due_invoice_preview; prepare_renewal_reminders(days). Creating invoices or sending reminders only prepares an approval action; never claim an action was completed."
 
 
 def get_provider() -> LLMProvider | None:
     provider = settings.AI_PROVIDER.lower()
-    if provider == "gemini" and settings.GEMINI_API_KEY:
+    placeholders = {"", "your_gemini_api_key", "your_actual_gemini_api_key", "replace_with_a_secure_random_secret"}
+    if provider == "gemini" and settings.GEMINI_API_KEY.strip() not in placeholders:
         return GeminiProvider()
-    if provider == "openai" and settings.OPENAI_API_KEY:
+    if provider == "openai" and settings.OPENAI_API_KEY.strip() not in placeholders:
         return OpenAIProvider()
     return None
 

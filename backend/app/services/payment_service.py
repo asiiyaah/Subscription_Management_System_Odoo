@@ -20,8 +20,8 @@ def record_payment(db: Session, *, invoice_id: UUID, amount: Decimal, payment_me
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id).with_for_update().first()
     if not invoice:
         raise HTTPException(404, "Invoice not found")
-    if invoice.status in {"cancelled", "canceled", "paid"}:
-        raise HTTPException(409, "This invoice cannot accept payments")
+    if invoice.status in {"draft", "cancelled", "canceled", "paid"}:
+        raise HTTPException(409, "Payments can only be recorded for confirmed invoices")
     balance = money(invoice.balance_due if invoice.balance_due is not None else invoice.total or 0)
     if amount > balance:
         raise HTTPException(422, "Payment exceeds the outstanding balance")

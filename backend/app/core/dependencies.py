@@ -24,8 +24,11 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     except (jwt.InvalidTokenError, ValueError, TypeError):
         raise invalid
     user = db.query(User).filter(User.id == user_id).first()
-    if not user or not user.is_active or not password_version or password_version != password_token_version(user.password_hash) or not token_id or not token_expiry:
+    if not user or not password_version or password_version != password_token_version(user.password_hash) or not token_id or not token_expiry:
         raise invalid
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+            detail="This account has been disabled. Contact your admin.")
     if db.query(RevokedToken.id).filter(RevokedToken.jti == token_id).first():
         raise invalid
     return user

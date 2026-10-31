@@ -26,6 +26,7 @@ class User(Base):
         ForeignKey("customers.id", ondelete="RESTRICT"), unique=True, nullable=True
     )
     created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     customer = relationship("Customer", back_populates="portal_user", foreign_keys=[customer_id])

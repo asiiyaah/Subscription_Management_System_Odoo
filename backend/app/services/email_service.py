@@ -67,3 +67,26 @@ def send_renewal_reminder_email(recipient: str, subscription) -> bool:
             client.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
         client.send_message(message)
     return True
+
+
+def send_overdue_invoice_reminder_email(recipient: str, invoice) -> bool:
+    if not settings.SMTP_HOST or not settings.SMTP_FROM_EMAIL:
+        return False
+    message = EmailMessage()
+    message["Subject"] = f"Payment reminder for invoice {invoice.invoice_number}"
+    message["From"] = settings.SMTP_FROM_EMAIL
+    message["To"] = recipient
+    message.set_content(
+        f"Invoice {invoice.invoice_number} was due on {invoice.due_date}.\n"
+        f"Outstanding balance: {invoice.balance_due}\n\n"
+        "Please contact us if you have already made this payment.\n"
+    )
+    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as client:
+        client.ehlo()
+        if settings.SMTP_STARTTLS:
+            client.starttls()
+            client.ehlo()
+        if settings.SMTP_USERNAME:
+            client.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+        client.send_message(message)
+    return True
