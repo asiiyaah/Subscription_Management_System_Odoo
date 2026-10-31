@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Index, String, Text, Numeric, ForeignKey
+from sqlalchemy import Index, String, Text, Numeric, ForeignKey, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.base import Base
 from datetime import datetime
@@ -16,6 +16,8 @@ class QuotationTemplate(Base):
     )
     name: Mapped[str] = mapped_column(String(150))
     description: Mapped[str | None] = mapped_column(Text)
+    payment_terms: Mapped[str | None] = mapped_column(Text)
+    validity_days: Mapped[int] = mapped_column(Integer, server_default=text("30"))
     status: Mapped[str | None] = mapped_column(
         String(20), server_default=text("'active'")
     )

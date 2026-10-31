@@ -1,18 +1,57 @@
-# Environment
+# Environment files
 .env
-venv/
-.venv/
+.env.*
+!.env.example
 
-# Python cache
+# Python
 __pycache__/
 *.py[cod]
+.Python
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+pytestdebug.log
+.tox/
+.nox/
+.hypothesis/
+.dmypy.json
+.pyre/
+.pytype/
+.cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+pip-wheel-metadata/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Node
+node_modules/
+dist/
+build/
+.vite/
+
+# Testing and coverage
+coverage/
+htmlcov/
+test-results/
 
 # IDE
 .vscode/
 .idea/
 
-# Testing
-.pytest_cache/
-
 # OS
 .DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak

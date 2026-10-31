@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Text, Integer, DateTime, text
+from sqlalchemy import String, Text, Integer, DateTime, Boolean, text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 from app.database.base import Base
@@ -33,4 +33,7 @@ class BusinessSetting(Base):
     default_payment_terms: Mapped[int | None] = mapped_column(
         Integer, server_default=text("15")
     )
+    auto_generate_invoices: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    send_renewal_reminders: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    auto_close_expired: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Index, String, Text, Numeric, ForeignKey
+from sqlalchemy import Index, String, Text, Numeric, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.base import Base
 from datetime import datetime
@@ -38,6 +38,7 @@ class Product(Base):
     plans = relationship("Plan", back_populates="product")
     subscription_lines = relationship("SubscriptionLine", back_populates="product")
     invoice_lines = relationship("InvoiceLine", back_populates="product")
+    tax_rules = relationship("ProductTaxRule", back_populates="product", cascade="all, delete-orphan")
 
 
 class ProductAttribute(Base):
@@ -75,3 +76,15 @@ class ProductAttributeValue(Base):
 
     attribute = relationship("ProductAttribute", back_populates="values")
     subscription_lines = relationship("SubscriptionLine", back_populates="attribute_value")
+
+
+class ProductTaxRule(Base):
+    __tablename__ = "product_tax_rules"
+    __table_args__ = (UniqueConstraint("product_id", "tax_id", name="uq_product_tax_rule"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()"))
+    product_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"))
+    tax_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("taxes.id", ondelete="RESTRICT"))
+
+    product = relationship("Product", back_populates="tax_rules")
+    tax = relationship("Tax")
