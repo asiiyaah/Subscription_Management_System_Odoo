@@ -132,6 +132,15 @@ export const mockPortal = {
     return { ...row, status, history, end_date: endDate, next_billing_date: nextBillingDate };
   },
 
+  async subscriptionInvoices(id: Id): Promise<InvoiceSummaryRow[]> {
+    const customerId = currentCustomerId();
+    if (customerId === null || !portalSummary(customerId).subscriptions.some((subscription) => String(subscription.id) === String(id))) {
+      throw new ApiError(404, "Subscription not found.");
+    }
+    const page = await this.invoices({ page: 1, page_size: 100, subscription_id: id } as InvoiceListQuery);
+    return page.items;
+  },
+
   async invoices(query: InvoiceListQuery): Promise<Paginated<InvoiceSummaryRow>> {
     const customerId = currentCustomerId();
     if (customerId === null) {
