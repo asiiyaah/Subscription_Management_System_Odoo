@@ -117,6 +117,17 @@ export const portalService = {
     return request(() => api.post(`/api/portal/subscriptions/${id}/${action}`));
   },
 
+  async subscriptionInvoices(id: Id): Promise<InvoiceSummaryRow[]> {
+    if (!LIVE) return mockPortal.subscriptionInvoices(id);
+    // GET /api/invoices supports subscription_id and scopes customer-role requests to the JWT customer.
+    // The portal invoice list has no subscription_id filter, so use the existing filtered invoice endpoint.
+    const statuses = ["confirmed"] as const;
+    const pages = await Promise.all(statuses.map((status) => request<Paginated<InvoiceSummaryRow>>(() =>
+      api.get("/api/invoices", { params: { subscription_id: id, status, page: 1, page_size: 100 } }),
+    )));
+    return pages.flatMap((page) => page.items);
+  },
+
   /** Extra filter: `unpaid=true`. Drafts are never returned. */
   async invoices(query: InvoiceListQuery & { unpaid?: "true" }): Promise<Paginated<InvoiceSummaryRow>> {
     if (!LIVE) return mockPortal.invoices(query);
