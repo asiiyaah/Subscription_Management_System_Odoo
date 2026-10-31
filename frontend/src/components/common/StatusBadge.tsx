@@ -33,6 +33,9 @@ const STATUS_TONES: Record<string, Tone> = {
   used_up: "grey",
   archived: "grey",
   inactive: "grey",
+  // Billing run preview
+  ready: "success",
+  skipped: "grey",
   // Generic
   pending: "warning",
   failed: "danger",

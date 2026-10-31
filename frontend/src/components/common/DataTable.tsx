@@ -38,7 +38,7 @@ interface DataTableProps<T> {
   searchPlaceholder?: string | false;
   /** Extra filter controls shown next to the search box (e.g. a <Select>). */
   filters?: ReactNode;
-  empty?: { title: string; description?: ReactNode; action?: ReactNode };
+  empty?: { title: string; description?: ReactNode; action?: ReactNode; icon?: ReactNode };
 }
 
 const PAGE_SIZES = [10, 25, 50];

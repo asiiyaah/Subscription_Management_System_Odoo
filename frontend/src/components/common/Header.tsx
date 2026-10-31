@@ -11,7 +11,7 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
     .toUpperCase();
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-line bg-bg/85 px-4 backdrop-blur sm:px-6">
+    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-line bg-bg/85 px-4 backdrop-blur sm:px-6 print:hidden">
       <button
         onClick={onMenuClick}
         aria-label="Open menu"
