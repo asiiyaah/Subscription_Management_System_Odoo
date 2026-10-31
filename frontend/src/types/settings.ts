@@ -47,3 +47,9 @@ export interface ChangePasswordRequest {
   current_password: string;
   new_password: string;
 }
+
+/** POST /api/auth/change-password — a fresh token comes back because the old one stops working. */
+export interface ChangePasswordResponse {
+  message: string;
+  access_token?: string;
+}

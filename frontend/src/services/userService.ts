@@ -31,6 +31,7 @@ interface ApiUser {
   created_at?: string | null;
   last_login?: string | null;
   invite_sent?: boolean;
+  must_change_password?: boolean;
 }
 
 const fromApi = (u: ApiUser): TeamMember => ({
@@ -41,6 +42,7 @@ const fromApi = (u: ApiUser): TeamMember => ({
   active: u.is_active !== false,
   last_login: u.last_login ?? null,
   created_at: u.created_at ?? "",
+  must_change_password: Boolean(u.must_change_password),
 });
 
 export const userService = {

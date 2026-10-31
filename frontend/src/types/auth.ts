@@ -6,6 +6,8 @@ export interface User {
   name: string;
   email: string;
   role: Role;
+  /** Admin gave a temporary password — the user must set their own before using the app. */
+  must_change_password?: boolean;
 }
 
 export interface LoginRequest {
@@ -29,6 +31,8 @@ export interface SignupRequest {
 
 export interface SignupResponse {
   user: User;
+  /** The customer must click the emailed confirmation link before logging in. */
+  verification_required?: boolean;
 }
 
 export interface ForgotPasswordRequest {

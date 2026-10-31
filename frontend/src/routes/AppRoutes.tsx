@@ -5,6 +5,8 @@ import Login from "@/pages/auth/Login";
 import Signup from "@/pages/auth/Signup";
 import ForgotPassword from "@/pages/auth/ForgotPassword";
 import ResetPassword from "@/pages/auth/ResetPassword";
+import SetPassword from "@/pages/auth/SetPassword";
+import VerifyEmail from "@/pages/auth/VerifyEmail";
 import PortalLayout from "@/layouts/PortalLayout";
 
 // Member 1 modules
@@ -37,6 +39,10 @@ export function AppRoutes() {
     { path: "/signup", element: <Signup /> },
     { path: "/forgot-password", element: <ForgotPassword /> },
     { path: "/reset-password", element: <ResetPassword /> },
+    { path: "/accept-invite", element: <ResetPassword invite /> },
+    { path: "/verify-email", element: <VerifyEmail /> },
+    // Signed in with a temporary password (outside ProtectedRoute, which redirects here).
+    { path: "/set-password", element: <SetPassword /> },
 
     // Admin & staff — every module's routes render inside AdminLayout
     {

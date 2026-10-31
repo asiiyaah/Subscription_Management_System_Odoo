@@ -1,7 +1,7 @@
 import { api, isLive, toApiError } from "@/services/api";
 import { mockAccount } from "@/mocks/auth";
 import { tokenStorage } from "@/lib/tokenStorage";
-import type { ChangePasswordRequest, Profile, ProfileUpdate } from "@/types/settings";
+import type { ChangePasswordRequest, ChangePasswordResponse, Profile, ProfileUpdate } from "@/types/settings";
 
 /**
  * The signed-in user's own account — any role. Live mapping:
@@ -45,8 +45,8 @@ export const accountService = {
     staffPhone: !LIVE,
     /** Customer billing address. */
     billingAddress: true,
-    /** Live: changing the password invalidates the current login, so the user signs in again. */
-    passwordChangeEndsSession: LIVE,
+    /** The backend returns a fresh token after a password change, so the user stays signed in. */
+    passwordChangeEndsSession: false,
   },
 
   async getProfile(): Promise<Profile> {
@@ -70,8 +70,12 @@ export const accountService = {
     return { ...fromApi(saved), phone: saved.phone ?? input.phone, company: saved.company ?? input.company };
   },
 
-  async changePassword(body: ChangePasswordRequest): Promise<{ message: string }> {
-    if (!LIVE) return mockAccount.changePassword(me()?.id ?? 0, body);
-    return request(() => api.post("/api/auth/change-password", body));
+  /** Changes the password and swaps in the fresh token the server returns (old tokens stop working). */
+  async changePassword(body: ChangePasswordRequest): Promise<ChangePasswordResponse> {
+    const result = LIVE
+      ? await request<ChangePasswordResponse>(() => api.post("/api/auth/change-password", body))
+      : await mockAccount.changePassword(me()?.id ?? 0, body);
+    if (result.access_token) tokenStorage.updateToken(result.access_token);
+    return result;
   },
 };

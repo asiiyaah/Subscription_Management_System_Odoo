@@ -36,6 +36,12 @@ export const tokenStorage = {
     store.setItem(USER_KEY, JSON.stringify(user));
   },
 
+  /** Swap the token (e.g. after a password change), keeping the same storage. */
+  updateToken(token: string): void {
+    const store = localStorage.getItem(TOKEN_KEY) ? localStorage : sessionStorage;
+    store.setItem(TOKEN_KEY, token);
+  },
+
   clear(): void {
     for (const store of storages()) {
       store.removeItem(TOKEN_KEY);

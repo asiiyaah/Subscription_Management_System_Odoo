@@ -29,6 +29,7 @@ function toMember(u: MockUser): TeamMember {
     active: u.active !== false,
     last_login: u.last_login ?? SEED_DATES[u.id]?.last_login ?? null,
     created_at: u.created_at ?? SEED_DATES[u.id]?.created_at ?? new Date().toISOString(),
+    must_change_password: Boolean(u.must_change_password),
   };
 }
 
@@ -91,12 +92,14 @@ export const mockUsers = {
       active: true,
       last_login: null,
       created_at: new Date().toISOString(),
+      must_change_password: !input.send_invite,
     };
     saveUsers([...users, user]);
 
     if (input.send_invite) {
       const { dev_reset_link } = await mockAuth.forgotPassword({ email });
-      return { user: toMember(user), message: `Invite sent to ${email}`, dev_invite_link: dev_reset_link };
+      // Invitations open the "accept invite" page (same token flow as password reset).
+      return { user: toMember(user), message: `Invite sent to ${email}`, dev_invite_link: dev_reset_link?.replace("/reset-password", "/accept-invite") };
     }
     return { user: toMember(user), message: `${user.name} can now log in with the temporary password` };
   },

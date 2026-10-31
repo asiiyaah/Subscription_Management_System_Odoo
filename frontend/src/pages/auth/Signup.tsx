@@ -1,12 +1,13 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
-import { Building2, Lock, Mail, Phone, User as UserIcon } from "lucide-react";
+import { Building2, Lock, Mail, MailCheck, Phone, User as UserIcon } from "lucide-react";
 import { AuthLayout } from "@/layouts/AuthLayout";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import { PasswordRulesChecklist } from "@/components/auth/PasswordRulesChecklist";
+import { ResendVerification } from "@/components/auth/ResendVerification";
 import { homePathFor, useAuth } from "@/context/AuthContext";
 import { EMAIL_PATTERN, isPasswordValid } from "@/lib/password";
 import { authService } from "@/services/authService";
@@ -28,6 +29,8 @@ export default function Signup() {
     confirm: "",
   });
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
+  // Set when the backend requires email confirmation before the first login.
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 
   const mutation = useMutation<SignupResponse, ApiError>({
     mutationFn: () =>
@@ -38,7 +41,11 @@ export default function Signup() {
         phone: form.phone.trim() || undefined,
         company: form.company.trim() || undefined,
       }),
-    onSuccess: ({ user: created }) => {
+    onSuccess: ({ user: created, verification_required }) => {
+      if (verification_required) {
+        setPendingEmail(created.email);
+        return;
+      }
       navigate("/login", {
         replace: true,
         state: { message: "Account created. Sign in to continue.", email: created.email },
@@ -51,6 +58,25 @@ export default function Signup() {
   });
 
   if (user) return <Navigate to={homePathFor(user.role)} replace />;
+
+  if (pendingEmail) {
+    return (
+      <AuthLayout title="Check your email" subtitle={`We sent a confirmation link to ${pendingEmail}.`}>
+        <div className="space-y-5">
+          <div className="flex justify-center">
+            <span className="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 ring-1 ring-primary/40">
+              <MailCheck className="size-8 text-primary" aria-hidden />
+            </span>
+          </div>
+          <p className="text-sm text-muted">Click the link in the email to confirm your address, then sign in. The link is valid for 48 hours.</p>
+          <ResendVerification email={pendingEmail} />
+          <Link to="/login" className="block text-center text-sm font-semibold text-primary hover:underline">
+            Go to sign in
+          </Link>
+        </div>
+      </AuthLayout>
+    );
+  }
 
   const update = (field: Field) => (event: ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [field]: event.target.value }));

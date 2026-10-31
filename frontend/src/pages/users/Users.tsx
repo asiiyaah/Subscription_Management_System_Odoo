@@ -110,7 +110,23 @@ export default function Users() {
           <span className="text-sm text-muted">Staff</span>
         ),
     },
-    { key: "active", header: "Status", render: (u) => <StatusBadge status={u.active ? "active" : "inactive"} /> },
+    {
+      key: "active",
+      header: "Status",
+      render: (u) => (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <StatusBadge status={u.active ? "active" : "inactive"} />
+          {u.must_change_password && (
+            <span
+              className="rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold text-warning ring-1 ring-inset ring-warning/40"
+              title="Still using the temporary password — they'll set their own at next login"
+            >
+              Temporary password
+            </span>
+          )}
+        </div>
+      ),
+    },
     {
       key: "last_login",
       header: "Last login",

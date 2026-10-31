@@ -2,7 +2,7 @@
 // Users and reset tokens are kept in localStorage so sign-up → login works across reloads.
 import { ApiError } from "@/services/api";
 import { isPasswordValid } from "@/lib/password";
-import type { ChangePasswordRequest, Profile, ProfileUpdate } from "@/types/settings";
+import type { ChangePasswordRequest, ChangePasswordResponse, Profile, ProfileUpdate } from "@/types/settings";
 import type { Id } from "@/types/common";
 import type {
   ForgotPasswordRequest,
@@ -24,6 +24,7 @@ export interface MockUser extends User {
   phone?: string;
   company?: string;
   billing_address?: string;
+  must_change_password?: boolean;
 }
 
 const USERS_KEY = "subscriptiq.mock.users";
@@ -51,8 +52,8 @@ function loadResetTokens(): Record<string, { email: string; expires: number }> {
   return JSON.parse(localStorage.getItem(RESET_KEY) ?? "{}");
 }
 
-function publicUser({ id, name, email, role }: MockUser): User {
-  return { id, name, email, role };
+function publicUser({ id, name, email, role, must_change_password }: MockUser): User {
+  return { id, name, email, role, must_change_password: Boolean(must_change_password) };
 }
 
 export const mockAuth = {
@@ -117,6 +118,17 @@ export const mockAuth = {
     localStorage.setItem(RESET_KEY, JSON.stringify(tokens));
     return { message: "Your password has been reset. You can now log in." };
   },
+
+  // Email verification is a backend setting (off by default); the mock never requires it.
+  async verifyEmail(): Promise<MessageResponse> {
+    await delay(400);
+    return { message: "Your email is confirmed. You can now log in." };
+  },
+
+  async resendVerification(): Promise<MessageResponse> {
+    await delay(400);
+    return { message: "If this account still needs confirming, we've sent a new link." };
+  },
 };
 
 /** The signed-in user's own account (Settings → Profile, Portal → Profile). The backend uses the JWT for the id. */
@@ -137,14 +149,14 @@ export const mockAccount = {
     return this.getProfile(userId);
   },
 
-  async changePassword(userId: Id, { current_password, new_password }: ChangePasswordRequest): Promise<{ message: string }> {
+  async changePassword(userId: Id, { current_password, new_password }: ChangePasswordRequest): Promise<ChangePasswordResponse> {
     await delay();
     const user = loadUsers().find((u) => u.id === userId);
     if (!user) throw new ApiError(401, "Please log in again.");
     if (user.password !== current_password) throw new ApiError(400, "Your current password is incorrect.");
     if (!isPasswordValid(new_password)) throw new ApiError(422, "The new password doesn't meet the password rules.");
     if (new_password === current_password) throw new ApiError(422, "Choose a password different from your current one.");
-    saveUsers(loadUsers().map((u) => (u.id === userId ? { ...u, password: new_password } : u)));
-    return { message: "Password changed. Use it next time you log in." };
+    saveUsers(loadUsers().map((u) => (u.id === userId ? { ...u, password: new_password, must_change_password: false } : u)));
+    return { message: "Password changed successfully.", access_token: `mock-token-${userId}` };
   },
 };

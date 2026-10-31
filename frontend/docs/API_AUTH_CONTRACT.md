@@ -66,3 +66,25 @@ Creates a **customer** account (staff are added by the admin elsewhere — R7).
 
 Every other request sends `Authorization: Bearer <access_token>`.
 A **401** on any non-auth endpoint logs the user out and sends them to `/login`.
+
+## Account onboarding (who gets in, and how)
+
+| Who | How | Endpoint |
+|---|---|---|
+| **Admin** | Created once at setup (`python -m scripts.seed_demo` or a one-off command). **No sign-up.** | — |
+| **Staff** | Admin invites by email (**48 h** link → `/accept-invite`) or sets a **temporary password** | `POST /api/users` `{ send_invite: true }` or `{ password }` |
+| **Customers** | Sign up themselves (linked to an existing customer record with the same email), or staff invite them | `POST /api/auth/signup`, `POST /api/customers/{id}/invite` |
+
+- **Temporary password:** the user is created with `must_change_password: true`. Login returns it in `user`; the app sends
+  them to `/set-password`. Until they change it, every API except `/api/auth/me`, `/change-password` and `/logout`
+  answers **403** "Please set a new password before continuing."
+- **`POST /api/auth/change-password`** → `{ message, access_token, user }`. The old token stops working, so the app
+  stores the new one and the user stays signed in. Clears `must_change_password`.
+- **Invitation links** use the same `POST /api/auth/reset-password` with the token from `/accept-invite?token=…`;
+  they're valid 48 h (reset links: 30 min) and also mark the email as verified.
+- **Email verification** (backend `REQUIRE_EMAIL_VERIFICATION=true`, off by default):
+  - sign-up returns `verification_required: true` → the app shows "Check your email";
+  - the email links to `/verify-email?token=…` → `POST /api/auth/verify-email { token }`;
+  - login before confirming → **403** "Please confirm your email address first…" → the app offers
+    `POST /api/auth/resend-verification { email }` (always answers with the same message).
+- All emails need SMTP configured on the backend (see `backend/.env.example`).

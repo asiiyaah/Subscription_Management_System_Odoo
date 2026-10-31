@@ -9,7 +9,7 @@ interface AuthContextValue {
   login: (credentials: LoginRequest, remember: boolean) => Promise<User>;
   logout: () => void;
   /** Update the signed-in user's details shown in the app (after a profile edit). */
-  updateUser: (changes: Partial<Pick<User, "name">>) => void;
+  updateUser: (changes: Partial<Pick<User, "name" | "must_change_password">>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  const updateUser = useCallback((changes: Partial<Pick<User, "name">>) => {
+  const updateUser = useCallback((changes: Partial<Pick<User, "name" | "must_change_password">>) => {
     setUser((current) => {
       if (!current) return current;
       const next = { ...current, ...changes };

@@ -12,7 +12,11 @@ import { authService } from "@/services/authService";
 import type { ApiError } from "@/services/api";
 import type { MessageResponse } from "@/types/auth";
 
-export default function ResetPassword() {
+/**
+ * Forgot-password links (/reset-password) and invitation links (/accept-invite) share this page:
+ * both let the user choose a password with a single-use token from their email.
+ */
+export default function ResetPassword({ invite = false }: { invite?: boolean }) {
   const token = useSearchParams()[0].get("token");
   const navigate = useNavigate();
 
@@ -27,8 +31,8 @@ export default function ResetPassword() {
 
   if (!token) {
     return (
-      <AuthLayout title="Invalid reset link" subtitle="This link is missing its reset token.">
-        <InvalidLink />
+      <AuthLayout title={invite ? "Invalid invitation link" : "Invalid reset link"} subtitle="This link is missing its token.">
+        <InvalidLink invite={invite} />
       </AuthLayout>
     );
   }
@@ -47,11 +51,14 @@ export default function ResetPassword() {
   const passwordsMatch = confirm.length > 0 && confirm === password;
 
   return (
-    <AuthLayout title="Set a new password" subtitle="Choose a strong password you haven't used before.">
+    <AuthLayout
+      title={invite ? "Welcome to SubscriptIQ" : "Set a new password"}
+      subtitle={invite ? "You've been invited. Choose a password to activate your account." : "Choose a strong password you haven't used before."}
+    >
       {tokenRejected ? (
         <div className="space-y-5">
           <Alert tone="error">{mutation.error.message}</Alert>
-          <InvalidLink />
+          <InvalidLink invite={invite} />
         </div>
       ) : (
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
@@ -85,7 +92,7 @@ export default function ResetPassword() {
           />
 
           <Button type="submit" block loading={mutation.isPending} className="mt-2">
-            {mutation.isPending ? "Resetting…" : "Reset password"}
+            {mutation.isPending ? "Saving…" : invite ? "Activate my account" : "Reset password"}
           </Button>
         </form>
       )}
@@ -93,7 +100,23 @@ export default function ResetPassword() {
   );
 }
 
-function InvalidLink() {
+function InvalidLink({ invite = false }: { invite?: boolean }) {
+  if (invite) {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-muted">
+          Invitation links expire after 48 hours and work once. Ask your admin to send a new invitation — or, if you already set
+          your password, just log in.
+        </p>
+        <Link
+          to="/login"
+          className="flex h-11 w-full items-center justify-center rounded-xl bg-gradient-to-r from-primary to-accent text-sm font-semibold text-white shadow-lg shadow-primary/25 transition hover:brightness-110"
+        >
+          Go to sign in
+        </Link>
+      </div>
+    );
+  }
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted">Reset links expire after 30 minutes and can only be used once.</p>

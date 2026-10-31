@@ -35,7 +35,16 @@ export const authService = {
     return USE_MOCK ? mockAuth.forgotPassword(body) : post("/api/auth/forgot-password", body);
   },
 
+  /** Also used for invitation links (first password). */
   resetPassword(body: ResetPasswordRequest): Promise<MessageResponse> {
     return USE_MOCK ? mockAuth.resetPassword(body) : post("/api/auth/reset-password", body);
+  },
+
+  verifyEmail(token: string): Promise<MessageResponse> {
+    return USE_MOCK ? mockAuth.verifyEmail() : post("/api/auth/verify-email", { token });
+  },
+
+  resendVerification(email: string): Promise<MessageResponse> {
+    return USE_MOCK ? mockAuth.resendVerification() : post("/api/auth/resend-verification", { email });
   },
 };

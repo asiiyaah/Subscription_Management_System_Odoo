@@ -15,12 +15,16 @@ cp .env.example .env # first time only — keeps VITE_USE_MOCKS=true
 npm run dev          # open http://localhost:5173
 ```
 
-**Log in** with the demo buttons on the login page:
+**Log in:** the login page lists the **demo accounts** (emails only). Click one to fill in the email, then type its
+password — passwords are never shown in the app:
 
-| Role | Use it to test |
-|---|---|
-| **Admin** | Everything (default for this guide) |
-| **Staff** | Read-only discounts, no Taxes or Users & staff pages, can't approve AI actions |
+| Role | Mock mode password | Live backend password | Use it to test |
+|---|---|---|---|
+| **Admin** | `Admin@1234` | your own admin's password | Everything (default for this guide) |
+| **Staff** | `Staff@1234` | `Staff@12345` (seed) | Read-only discounts, no Taxes or Users & staff pages, can't approve AI actions |
+| **Customer** | `Customer@1234` | `Customer@12345` (seed) | Customer portal |
+
+The list comes from `VITE_DEMO_ACCOUNTS` in `frontend/.env` (set it to `off` to hide the panel).
 
 **Things to know about the mock data**
 
@@ -452,6 +456,47 @@ Data persists, so changes **survive a reload** — and your teammates see them t
 - [ ] Send invoice without SMTP configured → "Email delivery is not configured" (expected).
 - [ ] As **staff**: no Taxes / Users; discounts read-only; can record payments; can't cancel invoices (admin only).
 - [ ] Stop the backend → pages show "Can't reach the server…" with Try again.
+
+---
+
+## Account onboarding (admin, staff, customers)
+
+Works in mock mode and against the backend. Live mode needs the onboarding migration (`alembic upgrade head`);
+invite / verification emails need SMTP (use a Mailtrap test inbox).
+
+### Flow U: Staff with a temporary password
+1. Admin → Users & staff → **Add staff member** → "Set a temporary password" (the hint says they'll be asked to change it).
+2. The new row shows **Active** + an amber **Temporary password** tag.
+3. Log out → log in as the new staff member → you land on **"Set your own password"**, not the dashboard.
+4. Try typing another URL (e.g. `/invoices`) → you're sent back to "Set your own password".
+5. Wrong temporary password → error under that field. Same password as the temporary one → error.
+6. Set a valid new password → "Your password is set. Welcome!" → dashboard. You stay signed in (no second login).
+7. Back as admin → the **Temporary password** tag is gone.
+
+### Flow V: Staff invited by email
+1. Admin → Add staff member → "Email an invite" → hint says the link is valid **48 hours**.
+2. Mock mode: click "Open the invite link". Live: open the email (Mailtrap) and click the link → `/accept-invite`.
+3. Page says **"Welcome to SubscriptIQ"** with an **Activate my account** button → set a password → back at login with
+   "Your account is ready…" → log in → dashboard (no forced change).
+4. Open the same link again → "Invalid invitation link" with "Go to sign in" (links work once).
+
+### Flow W: Customer sign-up linked to an existing record (live only)
+1. As admin/staff a customer already exists with email `ops@zenclinic.in` (seeded), and has invoices.
+2. Log out → **Create an account** with `ops@zenclinic.in` → log in → the portal immediately shows **Zen Clinic's**
+   subscriptions and invoices (not an empty portal).
+
+### Flow X: Email verification (live, backend `REQUIRE_EMAIL_VERIFICATION=true` + SMTP)
+1. Sign up a new customer → **"Check your email"** screen with "send it again".
+2. Try to log in before confirming → error "Please confirm your email address first…" with a **send it again** link.
+3. Click the link in the email → `/verify-email` → "Email confirmed" → Go to sign in → login works.
+4. Open the link again → "This link didn't work" with an email box to request a new one.
+
+### Checks
+- [ ] Settings → Password (normal change) keeps you signed in now (no "please log in again").
+- [ ] Forgot-password emails still use the 30-minute "Set a new password" page; invitation emails use the 48-hour
+      "Welcome to SubscriptIQ" page.
+- [ ] Demo accounts panel shows emails only; clicking one fills the email, clears the password and puts the cursor in it.
+- [ ] With `VITE_DEMO_ACCOUNTS=off` (restart dev server) the panel disappears.
 
 ---
 

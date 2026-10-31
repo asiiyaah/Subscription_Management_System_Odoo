@@ -10,6 +10,10 @@ export function ProtectedRoute({ roles }: { roles?: Role[] }) {
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
+  // Signed in with a temporary password: nothing else until they choose their own.
+  if (user.must_change_password) {
+    return <Navigate to="/set-password" replace />;
+  }
   if (roles && !roles.includes(user.role)) {
     return <Navigate to={homePathFor(user.role)} replace />;
   }

@@ -172,7 +172,7 @@ function AddStaffForm({ onCreated }: { onCreated: (result: CreateTeamMemberResul
           <p className="text-sm font-medium text-ink">Temporary password</p>
         )}
         {access === "invite" ? (
-          <p className="text-xs text-muted">They'll get a link to choose their own password. The link expires in 30 minutes.</p>
+          <p className="text-xs text-muted">They'll get an email with a link to choose their own password. The link is valid for 48 hours and works once.</p>
         ) : (
           <div className="space-y-2.5">
             <TextField
@@ -185,7 +185,7 @@ function AddStaffForm({ onCreated }: { onCreated: (result: CreateTeamMemberResul
               error={errors.password}
             />
             <PasswordRulesChecklist password={password} />
-            <p className="text-xs text-muted">Share it with them privately; they can change it in Settings.</p>
+            <p className="text-xs text-muted">Share it with them privately (not by email). They'll be asked to choose their own password the first time they log in.</p>
           </div>
         )}
       </div>

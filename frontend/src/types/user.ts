@@ -12,6 +12,8 @@ export interface TeamMember {
   last_login: string | null;
   /** Empty when the backend doesn't send it. */
   created_at: string;
+  /** Still on the temporary password the admin set. */
+  must_change_password?: boolean;
 }
 
 export interface TeamListQuery extends ListQuery {
