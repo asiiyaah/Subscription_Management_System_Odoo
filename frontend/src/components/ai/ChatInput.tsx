@@ -34,32 +34,35 @@ export function ChatInput({ onSend, disabled }: { onSend: (text: string) => void
   const nearLimit = text.length > MAX_LENGTH * 0.8;
 
   return (
-    <form onSubmit={submit} className="relative">
+    <form onSubmit={submit}>
       <label htmlFor="ai-input" className="sr-only">
         Ask the assistant
       </label>
-      <textarea
-        id="ai-input"
-        ref={ref}
-        rows={1}
-        maxLength={MAX_LENGTH}
-        value={text}
-        onChange={(event) => {
-          setText(event.target.value);
-          resize();
-        }}
-        onKeyDown={onKeyDown}
-        placeholder="Ask about subscriptions, invoices, payments or revenue…"
-        className="block max-h-40 min-h-13 w-full resize-none rounded-2xl border border-line bg-surface py-3.5 pl-4 pr-14 text-sm text-ink shadow-lg shadow-black/20 placeholder:text-muted/60 focus:border-primary focus:outline-none focus:ring-3 focus:ring-primary/20"
-      />
-      <button
-        type="submit"
-        disabled={disabled || !text.trim()}
-        aria-label="Send"
-        className="absolute bottom-2 right-2 flex size-9 items-center justify-center rounded-xl bg-gradient-to-r from-primary to-accent text-white shadow-md shadow-primary/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        <ArrowUp className="size-4.5" strokeWidth={2.5} />
-      </button>
+      {/* The send button is positioned against this wrapper (the text box only), not the hint line below it. */}
+      <div className="relative">
+        <textarea
+          id="ai-input"
+          ref={ref}
+          rows={1}
+          maxLength={MAX_LENGTH}
+          value={text}
+          onChange={(event) => {
+            setText(event.target.value);
+            resize();
+          }}
+          onKeyDown={onKeyDown}
+          placeholder="Ask about subscriptions, invoices, payments or revenue…"
+          className="block max-h-40 min-h-13 w-full resize-none rounded-2xl border border-line bg-surface py-3.5 pl-4 pr-14 text-sm text-ink shadow-lg shadow-black/20 placeholder:text-muted/60 focus:border-primary focus:outline-none focus:ring-3 focus:ring-primary/20"
+        />
+        <button
+          type="submit"
+          disabled={disabled || !text.trim()}
+          aria-label="Send"
+          className="absolute bottom-2 right-2 flex size-9 items-center justify-center rounded-xl bg-gradient-to-r from-primary to-accent text-white shadow-md shadow-primary/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <ArrowUp className="size-4.5" strokeWidth={2.5} />
+        </button>
+      </div>
       <p className={cn("mt-1.5 flex justify-between px-1 text-[11px] text-muted/80", nearLimit && "text-warning")}>
         <span>Enter to send · Shift + Enter for a new line</span>
         {nearLimit && (
