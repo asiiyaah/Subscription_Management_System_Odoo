@@ -1,8 +1,8 @@
-import type { ListQuery } from "@/types/common";
+import type { Id, ListQuery } from "@/types/common";
 
 /** Customer record returned by the list endpoint. */
 export interface Customer {
-  id: number;
+  id: Id;
   name: string;
   email: string;
   phone?: string;

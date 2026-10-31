@@ -3,7 +3,8 @@ import { mockProducts } from "@/mocks/products";
 import type { Paginated } from "@/types/common";
 import type { Product, ProductCreate, ProductDetail, ProductListQuery, ProductVariant, ProductVariantCreate, ProductVariantUpdate } from "@/types/product";
 
-// Product paths follow FRONTEND_PAGES.md. Backend request/response schemas are pending.
+// Product routes and schemas are implemented in the backend; Member 1 APIs remain mock-backed
+// when VITE_USE_MOCKS=true, as documented in BACKEND_INTEGRATION.md.
 export const productService = {
   async list(params: ProductListQuery): Promise<Paginated<Product>> {
     if (USE_MOCKS) return mockProducts.list(params);

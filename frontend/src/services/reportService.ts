@@ -31,8 +31,8 @@ function fromApi(raw: ApiReport): ReportData {
 }
 
 export const reportService = {
-  /** Day-bucket histogram for "Time to pay" (live: only the average is available). */
-  capabilities: { paymentTimingBuckets: !LIVE },
+  /** The backend returns the four contract-defined day buckets for live and mock data. */
+  capabilities: { paymentTimingBuckets: true },
 
   async get(filters: ReportFilters): Promise<ReportData> {
     if (!LIVE) return mockReports.get(filters);

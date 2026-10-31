@@ -39,7 +39,7 @@ export type AiResultData =
 /** A consequential action the AI prepared but must not run without approval (bulk reminders, invoices). */
 export interface AiPendingAction {
   id: string;
-  type: "send_renewal_reminders" | "generate_invoices";
+  type: "send_renewal_reminders" | "send_overdue_reminders" | "generate_invoices";
   title: string;
   description: string;
   /** What will happen, one line per item (e.g. each reminder email). */

@@ -87,7 +87,7 @@ function AddStaffForm({ onCreated }: { onCreated: (result: CreateTeamMemberResul
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<TeamRole>("staff");
-  // Live backend can't send invites yet, so a temporary password is the only option there.
+  // Live backend supports SMTP-backed invitations; the result explains if SMTP is not configured.
   const canInvite = userService.capabilities.invite;
   const [access, setAccess] = useState<"invite" | "password">(canInvite ? "invite" : "password");
   const [password, setPassword] = useState("");
