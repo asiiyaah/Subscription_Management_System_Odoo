@@ -124,16 +124,6 @@ export interface SubscriptionDiscountOption {
   status?: string;
 }
 
-export interface SubscriptionTemplateOption {
-  id: string;
-  name: string;
-  description?: string | null;
-  payment_terms?: string | null;
-  validity_days: number;
-  status: string;
-  lines: Array<{ product_id: string; plan_id?: string | null; quantity: number | string; unit_price?: number | string }>;
-}
-
 export interface SubscriptionInvoice {
   id: string;
   invoice_number: string;

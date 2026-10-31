@@ -3,13 +3,14 @@ import { mockCustomers } from "@/mocks/customers";
 import { mockProducts } from "@/mocks/products";
 import { mockPlans } from "@/mocks/plans";
 import { mockDiscounts } from "@/mocks/pricing";
+import { recordQuotationTemplateUsage } from "@/mocks/quotationTemplates";
 import { mockDelay, paginate } from "@/mocks/utils";
 import type { Paginated } from "@/types/common";
 import type {
   Subscription, SubscriptionAction, SubscriptionCreate, SubscriptionCustomerOption,
   SubscriptionDiscountOption, SubscriptionInvoicePage,
   SubscriptionListQuery, SubscriptionPreview, SubscriptionProductDetail,
-  SubscriptionTemplateOption, SubscriptionUpdate,
+  SubscriptionUpdate,
 } from "@/types/subscription";
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -45,11 +46,6 @@ let rows: Subscription[] = Array.from({ length: 12 }, (_, index) => {
     history: [{ previous_status: null, new_status: status, action: "created", created_at: new Date(Date.now() - index * 86_400_000).toISOString() }],
   };
 });
-
-const templates: SubscriptionTemplateOption[] = [
-  { id: "00000000-0000-4000-8000-000000000101", name: "Pro onboarding offer", description: "Pro plan with a short evaluation period.", payment_terms: "Net 15", validity_days: 30, status: "active", lines: [{ product_id: "1", plan_id: "1", quantity: 1 }] },
-  { id: "00000000-0000-4000-8000-000000000102", name: "Team backup package", payment_terms: "Net 30", validity_days: 21, status: "active", lines: [{ product_id: "2", plan_id: "3", quantity: 5 }, { product_id: "6", plan_id: "8", quantity: 5 }] },
-];
 
 async function productDetail(id: string): Promise<SubscriptionProductDetail> {
   const product = await mockProducts.getById(id);
@@ -133,6 +129,7 @@ export const mockSubscriptions = {
       history: [{ previous_status: null, new_status: input.status, action: "created", created_at: new Date().toISOString() }],
     };
     rows = [value, ...rows];
+    if (value.quotation_template_id) recordQuotationTemplateUsage(value.quotation_template_id);
     return clone(value);
   },
   async update(id: string, changes: SubscriptionUpdate): Promise<Subscription> {
@@ -181,6 +178,5 @@ export const mockSubscriptions = {
     const result = await mockDiscounts.list({ page: 1, page_size: 100 });
     return result.items.filter((item) => item.status === "active").map((item) => ({ id: String(item.id), code: item.code, name: item.name, active: item.active, status: item.status }));
   },
-  async templates(): Promise<SubscriptionTemplateOption[]> { await mockDelay(250); return clone(templates.filter((item) => item.status === "active")); },
   async invoices(_id: string): Promise<SubscriptionInvoicePage> { await mockDelay(150); return { items: [], total: 0, page: 1, page_size: 5 }; },
 };
