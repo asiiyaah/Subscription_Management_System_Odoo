@@ -10,13 +10,16 @@ from app.services.email_service import send_renewal_reminder_email
 logger = logging.getLogger(__name__)
 
 
-def prepare_renewal_reminders(db, *, days: int = 30):
+def prepare_renewal_reminders(db, *, days: int = 30, subscription_ids=None):
     days = max(1, min(int(days), 365))
     today = date.today()
     cutoff = today + timedelta(days=days)
-    ids = [row[0] for row in db.query(Subscription.id).filter(
+    query = db.query(Subscription.id).filter(
         Subscription.status == "active", Subscription.end_date >= today,
-        Subscription.end_date <= cutoff).order_by(Subscription.end_date).all()]
+        Subscription.end_date <= cutoff)
+    if subscription_ids is not None:
+        query = query.filter(Subscription.id.in_(subscription_ids))
+    ids = [row[0] for row in query.order_by(Subscription.end_date).all()]
     created = sent = skipped = failed = 0
     for subscription_id in ids:
         try:

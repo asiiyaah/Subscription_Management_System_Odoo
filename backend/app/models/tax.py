@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import String, Numeric, Boolean, DateTime, Index, text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from app.database.base import Base
 
@@ -24,3 +24,4 @@ class Tax(Base):
     is_default: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    product_rules = relationship("ProductTaxRule", back_populates="tax", cascade="all, delete-orphan")

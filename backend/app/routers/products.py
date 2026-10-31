@@ -13,6 +13,7 @@ from app.models.tax import Tax
 from app.models.user import User
 
 router = APIRouter(prefix="/api/products", tags=["products"])
+variant_router = APIRouter(prefix="/api/product-attribute-values", tags=["products"])
 
 
 class AttributeValueInput(BaseModel):
@@ -71,20 +72,33 @@ class AttributePatch(BaseModel):
 
 def _product_dict(product: Product):
     data = ProductOutput.model_validate(product).model_dump(mode="json")
-    data["attributes"] = [{"id": str(a.id), "name": a.name, "values": [{"id": str(v.id), "value": v.value, "extra_price": str(v.extra_price or 0)} for v in a.values]} for a in product.attributes]
+    data["attributes"] = [{"id": str(a.id), "product_id": str(product.id), "name": a.name,
+        "values": [{"id": str(v.id), "attribute_id": str(a.id), "attribute_name": a.name,
+            "value": v.value, "extra_price": str(v.extra_price or 0)} for v in a.values]} for a in product.attributes]
     return data
 
 
 @router.get("")
-def list_products(q: str | None = None, status_filter: str | None = Query(None, alias="status"), page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100), db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+def list_products(q: str | None = None, search: str | None = None, product_type: str | None = None,
+                  status_filter: str | None = Query(None, alias="status"), page: int = Query(1, ge=1),
+                  page_size: int = Query(20, ge=1, le=100), db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     query = db.query(Product).options(selectinload(Product.attributes).selectinload(ProductAttribute.values))
-    if q:
-        query = query.filter(or_(Product.name.ilike(f"%{q}%"), Product.description.ilike(f"%{q}%")))
+    term = q or search
+    if term:
+        query = query.filter(or_(Product.name.ilike(f"%{term}%"), Product.description.ilike(f"%{term}%")))
+    if product_type:
+        query = query.filter(Product.product_type == product_type)
     if status_filter:
         query = query.filter(Product.status == status_filter)
     total = query.count()
     rows = query.order_by(Product.name).offset((page - 1) * page_size).limit(page_size).all()
     return {"items": [_product_dict(x) for x in rows], "total": total, "page": page, "page_size": page_size}
+
+
+@router.get("/options")
+def product_options(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+    return [{"id": str(pid), "name": name} for pid, name in db.query(Product.id, Product.name)
+        .filter(Product.status == "active").order_by(Product.name).all()]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -107,6 +121,7 @@ def get_product(product_id: UUID, db: Session = Depends(get_db), _: User = Depen
 
 
 @router.patch("/{product_id}")
+@router.put("/{product_id}")
 def update_product(product_id: UUID, payload: ProductPatch, db: Session = Depends(get_db), _: User = Depends(require_roles("admin", "staff"))):
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
@@ -146,7 +161,7 @@ def add_attribute(product_id: UUID, payload: AttributeInput, db: Session = Depen
     db.add(item)
     db.commit()
     db.refresh(item)
-    return {"id": str(item.id), "name": item.name, "values": [{"id": str(v.id), "value": v.value, "extra_price": str(v.extra_price or 0)} for v in item.values]}
+    return {"id": str(item.id), "product_id": str(product.id), "name": item.name, "values": [{"id": str(v.id), "attribute_id": str(item.id), "attribute_name": item.name, "value": v.value, "extra_price": str(v.extra_price or 0)} for v in item.values]}
 
 
 @router.patch("/{product_id}/attributes/{attribute_id}")
@@ -227,3 +242,25 @@ def set_product_taxes(product_id: UUID, payload: ProductTaxInput, db: Session = 
     db.add_all([ProductTaxRule(product_id=product_id, tax_id=tax_id) for tax_id in set(payload.tax_ids)])
     db.commit()
     return get_product_taxes(product_id, db, _=None)
+
+
+@variant_router.put("/{value_id}")
+def update_variant(value_id: UUID, payload: AttributeValuePatch, db: Session = Depends(get_db), _: User = Depends(require_roles("admin", "staff"))):
+    value = db.query(ProductAttributeValue).options(selectinload(ProductAttributeValue.attribute)).filter(ProductAttributeValue.id == value_id).first()
+    if not value:
+        raise HTTPException(404, "Attribute value not found")
+    for key, item in payload.model_dump(exclude_unset=True).items():
+        setattr(value, key, item)
+    db.commit()
+    return {"id": str(value.id), "attribute_id": str(value.attribute_id), "attribute_name": value.attribute.name,
+        "value": value.value, "extra_price": str(value.extra_price or 0)}
+
+
+@variant_router.delete("/{value_id}")
+def delete_variant(value_id: UUID, db: Session = Depends(get_db), _: User = Depends(require_roles("admin", "staff"))):
+    value = db.get(ProductAttributeValue, value_id)
+    if not value:
+        raise HTTPException(404, "Attribute value not found")
+    db.delete(value)
+    db.commit()
+    return {"message": "Attribute value deleted"}
