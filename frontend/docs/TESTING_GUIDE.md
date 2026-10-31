@@ -1,6 +1,6 @@
-# SubscriptIQ Frontend — Manual Testing Guide (Steps 2–5)
+# SubscriptIQ Frontend — Manual Testing Guide (Steps 2–6)
 
-How to check Invoices, Payments, Discounts & Taxes and the AI Assistant by hand.
+How to check Invoices, Payments, Discounts & Taxes, the AI Assistant and Reports by hand.
 Each section has **flows** (a realistic story to walk through) and **checks** (tick them off).
 Requirement IDs (R22, R34 …) refer to [PROBLEM_STATEMENT.md](./PROBLEM_STATEMENT.md).
 
@@ -237,7 +237,51 @@ npm run dev          # open http://localhost:5173
 
 ---
 
-## 6. End-to-end flows (run these before the demo)
+## Step 6 — Reports (`/reports`)
+
+The finance lead's "one place" page (R37) with filters and a summary view (R38).
+
+### Flow I: Month-end review
+1. Open **Reports** → default period **Last 3 months**; the date range shows at the right of the filter bar.
+2. Read the six summary cards: Active subscriptions, MRR (today), Invoiced in period, Collected in period,
+   Outstanding (today), Overdue (count + amount).
+3. **Revenue** tab: "Invoiced vs collected" monthly bars (pink = invoiced, blue = collected, legend at top right),
+   "Invoiced by plan" ranked bars, and a **Monthly breakdown** table with a collection %.
+4. Hover a month's bars → tooltip with both amounts.
+5. Click the **Overdue** summary card → jumps to the **Overdue** tab: aging buckets + oldest-first overdue table.
+6. Click an invoice number → opens that invoice.
+
+### Flow J: Drill into one plan and one customer
+1. Set **Plan** = *Pro Monthly* → every card, chart and table updates (charts dim briefly while loading).
+2. Set **Customer** = *Acme Retail* → numbers narrow further (some sections may become empty — that's expected).
+3. Click **Reset** → back to all plans, all customers, last 3 months (the tab you're on stays).
+
+### Flow K: Custom range + export
+1. **Period** → *Custom range* → From/To boxes appear, pre-filled with the range you were looking at.
+2. Pick a From date **after** the To date → red message "The From date is after the To date…", no report.
+3. Fix the range → report returns.
+4. On the **Payments** tab click **Export Payments CSV** → a `payments_<from>_<to>.csv` file downloads.
+   Open it in Excel / Google Sheets: headers + one row per payment, ₹ amounts as plain numbers.
+
+### Checks
+- [ ] Refresh the page (F5) → period, plan, customer and tab are kept (they're in the URL).
+- [ ] **This month** shows fewer months on the bar chart than **Last 6 months**; months with no activity show as zero (no gaps).
+- [ ] **Subscriptions** tab: status bars in order Draft → Quotation → Confirmed → Active → Paused → Closed with status
+      badges; "MRR by plan"; subscriptions table (subscription numbers link to the placeholder page).
+- [ ] **Payments** tab: monthly received bars (pink only — single series, no legend), "By method" bars, payments table.
+- [ ] Payments totals here match the **Payments** page for the same dates (use **This month** on both).
+- [ ] Record a payment on the Invoices page, come back to Reports → Collected and Outstanding update.
+- [ ] Tables over 10 rows show **Show all N rows** / **Show fewer**.
+- [ ] Each tab's export button names that tab ("Export Revenue CSV", "Export Overdue CSV"…) and downloads that table.
+- [ ] Staff can open Reports too (same view as admin).
+
+### Phone (400 px)
+- [ ] Filters wrap onto several lines; summary cards 2 per row; charts stack full width and stay readable;
+      tables scroll inside their boxes.
+
+---
+
+## 7. End-to-end flows (run these before the demo)
 
 ### E2E 1 — "Billing day to cash" (Steps 2 + 3)
 1. Invoices → **Generate due invoices** → generate.
@@ -257,13 +301,18 @@ npm run dev          # open http://localhost:5173
 2. Deactivate it → Inactive tab.
 3. Taxes → Make `GST 12%` default → then set `GST 18%` back.
 
-### E2E 4 — "Permissions" (all steps)
-1. As **Staff**: Discounts read-only, no Taxes, AI approve disabled, Invoices & Payments fully usable.
+### E2E 4 — "Month-end numbers" (Steps 3 + 6)
+1. Reports → **This month** → note **Collected in period**.
+2. Payments → **This month** → the "Collected this month" card shows the same amount.
+3. Record a payment → back to Reports → Collected has gone up by that amount, Outstanding down.
+
+### E2E 5 — "Permissions" (all steps)
+1. As **Staff**: Discounts read-only, no Taxes, AI approve disabled, Invoices, Payments & Reports fully usable.
 2. As **Customer**: lands on `/portal` placeholder; opening `/invoices` redirects back to `/portal`.
 
 ---
 
-## 7. Reporting a problem
+## 8. Reporting a problem
 
 Copy this into the team chat:
 
