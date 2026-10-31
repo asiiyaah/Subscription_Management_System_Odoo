@@ -1,6 +1,7 @@
 import {
   BarChart3,
   Bot,
+  ClipboardList,
   CreditCard,
   FileText,
   LayoutDashboard,
@@ -30,6 +31,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", to: "/", icon: LayoutDashboard, roles: STAFF },
   { label: "AI Assistant", to: "/assistant", icon: Bot, roles: STAFF },
   { label: "Subscriptions", to: "/subscriptions", icon: Repeat, roles: STAFF },
+  { label: "Quotation templates", to: "/quotation-templates", icon: ClipboardList, roles: STAFF },
   { label: "Customers", to: "/customers", icon: Users, roles: STAFF },
   { label: "Products", to: "/products", icon: Package, roles: STAFF },
   { label: "Plans", to: "/plans", icon: Layers, roles: STAFF },
