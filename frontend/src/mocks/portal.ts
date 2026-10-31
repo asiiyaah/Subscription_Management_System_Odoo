@@ -5,7 +5,7 @@ import { customerIdForName, mockInvoices, portalInvoice, portalSummary } from "@
 import { mockDelay } from "@/mocks/utils";
 import { tokenStorage } from "@/lib/tokenStorage";
 import { loadUsers } from "@/mocks/auth";
-import type { Paginated } from "@/types/common";
+import type { Id, Paginated } from "@/types/common";
 import type { Invoice, InvoiceListQuery, InvoiceSummaryRow } from "@/types/invoice";
 import type { PortalSummary } from "@/types/portal";
 
@@ -44,7 +44,7 @@ export const mockPortal = {
     } as InvoiceListQuery);
   },
 
-  async invoice(id: number): Promise<Invoice> {
+  async invoice(id: Id): Promise<Invoice> {
     await mockDelay(300);
     const customerId = currentCustomerId();
     if (customerId === null) throw new ApiError(404, "Invoice not found.");

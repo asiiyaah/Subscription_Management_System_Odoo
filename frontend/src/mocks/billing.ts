@@ -3,7 +3,7 @@
 // so the pages only display what comes back. Data resets on page reload.
 import { ApiError } from "@/services/api";
 import { localIso, mockDelay, paginate } from "@/mocks/utils";
-import type { Paginated } from "@/types/common";
+import type { Id, Paginated } from "@/types/common";
 import type {
   DueInvoicePreview,
   GenerateInvoicesResult,
@@ -175,7 +175,7 @@ function seed(): Invoice[] {
     }
   });
 
-  invoices.sort((a, b) => a.invoice_date.localeCompare(b.invoice_date) || a.id - b.id);
+  invoices.sort((a, b) => a.invoice_date.localeCompare(b.invoice_date) || Number(a.id) - Number(b.id));
   invoices.forEach((inv, index) => {
     inv.number = `INV-${inv.invoice_date.slice(0, 4)}-${String(index + 1).padStart(4, "0")}`;
   });
@@ -183,7 +183,7 @@ function seed(): Invoice[] {
   // Number seeded payments in date order so PAY-0001 is the oldest.
   invoices
     .flatMap((inv) => inv.payments)
-    .sort((a, b) => a.payment_date.localeCompare(b.payment_date) || a.id - b.id)
+    .sort((a, b) => a.payment_date.localeCompare(b.payment_date) || Number(a.id) - Number(b.id))
     .forEach((payment, index) => {
       payment.id = index + 1;
       payment.number = `PAY-${String(index + 1).padStart(4, "0")}`;
@@ -198,8 +198,8 @@ function refreshOverdue(invoice: Invoice): Invoice {
   return invoice;
 }
 
-function findInvoice(id: number): Invoice {
-  const invoice = INVOICES.find((inv) => inv.id === id);
+function findInvoice(id: Id): Invoice {
+  const invoice = INVOICES.find((inv) => String(inv.id) === String(id));
   if (!invoice) throw new ApiError(404, "Invoice not found.");
   return refreshOverdue(invoice);
 }
@@ -219,8 +219,8 @@ export const mockInvoices = {
     let rows = INVOICES.map(toRow);
     if (exclude_draft === "true") rows = rows.filter((r) => r.status !== "draft");
     if (overdue === "true") rows = rows.filter((r) => r.is_overdue);
-    if (customer_id) rows = rows.filter((r) => r.customer_id === Number(customer_id));
-    if (subscription_id) rows = rows.filter((r) => r.subscription_id === Number(subscription_id));
+    if (customer_id) rows = rows.filter((r) => String(r.customer_id) === String(customer_id));
+    if (subscription_id) rows = rows.filter((r) => String(r.subscription_id) === String(subscription_id));
     return paginate(rows, rest, ["number", "customer_name", "subscription_number"]);
   },
 
@@ -245,12 +245,12 @@ export const mockInvoices = {
     };
   },
 
-  async get(id: number): Promise<Invoice> {
+  async get(id: Id): Promise<Invoice> {
     await mockDelay(300);
     return structuredClone(findInvoice(id));
   },
 
-  async confirm(id: number): Promise<Invoice> {
+  async confirm(id: Id): Promise<Invoice> {
     await mockDelay();
     const invoice = findInvoice(id);
     if (invoice.status !== "draft") throw new ApiError(409, "Only draft invoices can be confirmed.");
@@ -258,7 +258,7 @@ export const mockInvoices = {
     return structuredClone(refreshOverdue(invoice));
   },
 
-  async cancel(id: number): Promise<Invoice> {
+  async cancel(id: Id): Promise<Invoice> {
     await mockDelay();
     const invoice = findInvoice(id);
     if (invoice.status === "paid" || invoice.status === "cancelled") {
@@ -269,7 +269,7 @@ export const mockInvoices = {
     return structuredClone(refreshOverdue(invoice));
   },
 
-  async send(id: number): Promise<{ message: string }> {
+  async send(id: Id): Promise<{ message: string }> {
     await mockDelay();
     const invoice = findInvoice(id);
     if (invoice.status === "draft" || invoice.status === "cancelled") {
@@ -310,7 +310,7 @@ export const mockInvoices = {
   async generateDue(): Promise<GenerateInvoicesResult> {
     await mockDelay(900);
     const preview = await this.duePreview();
-    const ids: number[] = [];
+    const ids: Id[] = [];
     for (const row of preview.filter((p) => p.status === "ready")) {
       const sub = SUBSCRIPTIONS.find((s) => s.id === row.subscription_id)!;
       const invoice = buildInvoice(sub, new Date(row.period_start), "draft");
@@ -339,8 +339,8 @@ export const mockPayments = {
     let rows = allPaymentRows();
     if (date_from) rows = rows.filter((r) => r.payment_date >= date_from);
     if (date_to) rows = rows.filter((r) => r.payment_date <= date_to);
-    if (customer_id) rows = rows.filter((r) => r.customer_id === Number(customer_id));
-    if (invoice_id) rows = rows.filter((r) => r.invoice_id === Number(invoice_id));
+    if (customer_id) rows = rows.filter((r) => String(r.customer_id) === String(customer_id));
+    if (invoice_id) rows = rows.filter((r) => String(r.invoice_id) === String(invoice_id));
     return paginate(rows, rest, ["number", "customer_name", "invoice_number", "note"]);
   },
 
@@ -523,8 +523,8 @@ export function portalSummary(customerId: number) {
 }
 
 /** Full invoice only if it belongs to this customer (and isn't a draft) — otherwise "not found". */
-export function portalInvoice(customerId: number, invoiceId: number): Invoice {
-  const invoice = INVOICES.find((inv) => inv.id === invoiceId && inv.customer_id === customerId && inv.status !== "draft");
+export function portalInvoice(customerId: Id, invoiceId: Id): Invoice {
+  const invoice = INVOICES.find((inv) => String(inv.id) === String(invoiceId) && inv.customer_id === customerId && inv.status !== "draft");
   if (!invoice) throw new ApiError(404, "Invoice not found.");
   return structuredClone(refreshOverdue(invoice));
 }

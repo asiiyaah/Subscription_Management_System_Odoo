@@ -402,33 +402,56 @@ What a customer sees (R6): only **their own** subscriptions and invoices. Log in
 
 ## Live backend — Member 2 modules (`VITE_LIVE_APIS`)
 
-Run these with the backend running and `frontend/.env` set as in [BACKEND_INTEGRATION.md](./BACKEND_INTEGRATION.md)
-(`VITE_LIVE_APIS=taxes,discounts,users,settings,lookups`, restart `npm run dev`). Use a **database** account.
+Everything in Steps 2–9 can also run on the real backend. Set up as in [BACKEND_INTEGRATION.md](./BACKEND_INTEGRATION.md):
+
+```bash
+# frontend/.env — then restart npm run dev
+VITE_LIVE_APIS=taxes,discounts,users,settings,lookups,invoices,payments,reports,portal,ai
+```
+
+Use the **database** logins (from `python -m scripts.seed_demo`): your admin, `staff@subscriptiq.com` / `Staff@12345`,
+and `customer@acmeretail.in` / `Customer@12345` (portal). Demo-account buttons on the login page don't work here.
+Data persists, so changes **survive a reload** — and your teammates see them too.
 
 ### Flow Q: Real login and account
-1. Sign up a new account → "Account created" → log in with it → lands on `/portal` (customer).
-2. Log in as a database **admin** → dashboard. Wrong password → "Incorrect email or password."
-3. Forgot password with a registered email → generic message (an email is sent only if the backend has SMTP set up).
-4. Settings → Profile → change your name → saved; refresh the page → name is still changed (it's in the database).
-5. Settings → Password → change it → toast "Please log in with your new password" and you're returned to login →
-   the **old** password fails, the new one works.
+1. Log in as the database admin → dashboard. Wrong password → "Incorrect email or password."
+2. Settings → Profile → change your name → refresh → still changed.
+3. Settings → Password → change it → "Please log in with your new password" → back at login → the **old** password
+   fails, the new one works.
+
+### Flow R: Billing day → cash, on real data (Steps 2 + 3)
+1. Invoices → numbers look like `INV-20261031-AB12CD34`; customer, subscription and plan names show (no UUIDs).
+2. Tabs: Overdue shows the seeded overdue invoices (Pixel Studio, Urban Fitness, Bluefin…); counts match the cards.
+3. Search `pixel` → only Pixel Studio; sort by Total; page 2.
+4. **Generate due invoices** → usually "Nothing to generate" (the seed already billed up to today) — that's the
+   no-double-billing check.
+5. Open an **overdue** invoice → line items with GST (CRM lines also show the ₹25 cess), payments list, balance card.
+6. **Record payment** for the full balance → invoice becomes **Paid** → refresh → still Paid.
+7. Payments → the new payment is at the top; "Collected this month" went up.
+
+### Flow S: Reports and AI on real data (Steps 5 + 6)
+1. Reports → Last 3 months → cards show real totals (Invoiced ≈ ₹1.3 L, Outstanding, 4+ overdue).
+2. Overdue tab → the same invoices as the Invoices → Overdue tab. Time to pay shows the **average only** (expected).
+3. AI Assistant → "Show overdue invoices" → tool step + table with real invoice numbers (needs `GEMINI_API_KEY` on the
+   server; without it you get a polite "unavailable" reply — expected).
+
+### Flow T: Customer portal on real data (Step 9)
+1. Log in as `customer@acmeretail.in` → portal shows Acme Retail's subscriptions (by number), invoices and balance.
+2. My invoices → open one → printable invoice; another customer's invoice URL → "Invoice not found".
+3. How to pay shows the bank/UPI saved in Settings → Business.
 
 ### Checks
-- [ ] **Taxes:** create, edit, Make default (the old default loses its badge), deactivate/activate. No "Specific
-      products" option and no Delete (both expected in live mode). Refresh → changes persist.
-- [ ] **Discounts:** create with dates, minimums and a usage limit → appears with the right status tab. Pick
-      "Specific products" → the list shows **real** active products. Duplicate code → error under Code.
-      Deactivate/activate works; no Delete (expected). Refresh → changes persist.
-- [ ] **Users & staff:** list shows only admin and staff (no customers). Add staff → only "Temporary password" is
-      offered → log in as them in another browser. Disable → their login fails. Try disabling yourself or demoting the
-      last admin → server error message shows. No Last login / Added columns (expected).
-- [ ] **Settings → Business:** edit name, address, prefixes, payment terms → save → refresh → kept.
-      GSTIN and Bank & UPI are greyed out with an info note (expected).
-- [ ] **Settings → Automation:** Renewal reminder shows Off / On only; no Run at time or Overdue reminder (expected).
-- [ ] As **staff**: Taxes and Users hidden; Discounts read-only; Settings shows Profile + Password only.
-- [ ] Invoices, Payments, Reports, AI and portal invoices still show **mock** data (they go live after the backend
-      changes listed in BACKEND_INTEGRATION.md §3).
-- [ ] Stop the backend while logged in → pages show "Can't reach the server…" with Try again, not a blank screen.
+- [ ] **Taxes:** create a rule for **specific products** (real products listed); Make default moves the badge;
+      deactivate/activate. No Delete (expected — the server deactivates).
+- [ ] **Discounts:** tabs and counts come from the server; create, edit, deactivate; **Delete** a never-used one works,
+      a used one shows the server's error.
+- [ ] **Users & staff:** Last login / Added columns show; add staff by **invite** (message says whether the email went
+      out) or temporary password; Send password reset; disable yourself → server error.
+- [ ] **Settings → Business:** GSTIN, bank and UPI save and appear on invoices; bad GSTIN → server error.
+- [ ] **Settings → Automation:** run time and reminder days save and come back after refresh.
+- [ ] Send invoice without SMTP configured → "Email delivery is not configured" (expected).
+- [ ] As **staff**: no Taxes / Users; discounts read-only; can record payments; can't cancel invoices (admin only).
+- [ ] Stop the backend → pages show "Can't reach the server…" with Try again.
 
 ---
 

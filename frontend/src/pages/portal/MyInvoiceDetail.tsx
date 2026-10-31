@@ -15,14 +15,15 @@ import type { Invoice } from "@/types/invoice";
 
 /** One of my invoices (C3a): read-only, printable. Other customers' invoices return "not found". */
 export default function MyInvoiceDetail() {
-  const id = Number(useParams().id);
+  // Ids are numbers in the mocks and UUID strings from the backend — keep them as text.
+  const id = useParams().id ?? "";
   const [params, setParams] = useSearchParams();
   const business = useBusinessSettings();
 
   const { data: invoice, isPending, isError, error, refetch } = useQuery<Invoice, ApiError>({
     queryKey: ["portal", "invoice", id],
     queryFn: () => portalService.invoice(id),
-    enabled: Number.isFinite(id),
+    enabled: id !== "",
   });
 
   // "Print / save PDF" from the list arrives with ?print=1 (same pattern as the admin page).

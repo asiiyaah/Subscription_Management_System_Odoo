@@ -15,7 +15,8 @@ import type { ApiError } from "@/services/api";
 import type { Invoice } from "@/types/invoice";
 
 export default function InvoiceDetail() {
-  const id = Number(useParams().id);
+  // Ids are numbers in the mocks and UUID strings from the backend — keep them as text.
+  const id = useParams().id ?? "";
   const [params, setParams] = useSearchParams();
   const { actions, dialogs, isSending } = useInvoiceActions();
   const business = useBusinessSettings();
@@ -23,7 +24,7 @@ export default function InvoiceDetail() {
   const { data: invoice, isPending, isError, error, refetch } = useQuery<Invoice, ApiError>({
     queryKey: ["invoices", "detail", id],
     queryFn: () => invoiceService.get(id),
-    enabled: Number.isFinite(id),
+    enabled: id !== "",
   });
 
   // "Print" from the list opens this page with ?print=1 — print once the invoice has loaded.

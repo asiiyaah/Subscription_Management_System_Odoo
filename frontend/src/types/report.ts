@@ -1,3 +1,4 @@
+import type { Id } from "@/types/common";
 import type { PaymentMethod } from "@/types/invoice";
 
 /** Filters for GET /api/reports (R38). Dates are inclusive YYYY-MM-DD. */
@@ -5,7 +6,7 @@ export interface ReportFilters {
   date_from: string;
   date_to: string;
   plan?: string;
-  customer_id?: number;
+  customer_id?: Id;
 }
 
 export type SubscriptionStatus = "draft" | "quotation" | "confirmed" | "active" | "paused" | "closed";
@@ -31,7 +32,7 @@ export interface ReportData {
   subscriptions_by_status: Array<{ status: SubscriptionStatus; count: number }>;
   subscriptions_by_plan: Array<{ plan: string; count: number; mrr: number }>;
   subscriptions: Array<{
-    id: number;
+    id: Id;
     number: string;
     customer_name: string;
     plan_name: string;
@@ -43,11 +44,11 @@ export interface ReportData {
   payments_by_method: Array<{ method: PaymentMethod; amount: number; count: number }>;
   /** Up to 100 most recent payments in the range; `payments_total` is the full count. */
   payments: Array<{
-    id: number;
+    id: Id;
     number: string;
     payment_date: string;
     customer_name: string;
-    invoice_id: number;
+    invoice_id: Id;
     invoice_number: string;
     method: PaymentMethod;
     amount: number;
@@ -62,7 +63,7 @@ export interface ReportData {
   /** Fixed order: 1–30, 31–60, 61–90, 90+ days. */
   overdue_aging: Array<{ bucket: string; amount: number; count: number }>;
   overdue: Array<{
-    id: number;
+    id: Id;
     number: string;
     customer_name: string;
     plan_name: string;

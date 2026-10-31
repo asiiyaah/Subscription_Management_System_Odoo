@@ -141,7 +141,7 @@ export default function Reports() {
       date_from: range.from || presetRange(DEFAULT_PERIOD).from,
       date_to: range.to || isoDate(new Date()),
       plan: params.get("plan") ?? undefined,
-      customer_id: params.get("customer") ? Number(params.get("customer")) : undefined,
+      customer_id: params.get("customer") || undefined,
     };
   }, [params, period]);
   const rangeInvalid = filters.date_from > filters.date_to;
@@ -438,7 +438,11 @@ function PaymentsTab({ data }: { data: ReportData }) {
           )
         }
       >
-        {data.payment_timing.every((b) => b.count === 0) ? (
+        {data.payment_timing.length === 0 ? (
+          <p className="py-10 text-center text-sm text-muted">
+            {data.avg_days_to_pay !== null ? "A day-by-day breakdown isn't available yet — the average is shown above." : "No payments in this period."}
+          </p>
+        ) : data.payment_timing.every((b) => b.count === 0) ? (
           <p className="py-10 text-center text-sm text-muted">No payments in this period.</p>
         ) : (
           <Histogram data={data.payment_timing.map((b) => ({ bucket: b.bucket, value: b.count }))} />

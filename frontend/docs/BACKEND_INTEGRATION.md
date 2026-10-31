@@ -9,40 +9,37 @@ In `frontend/.env`:
 
 ```bash
 VITE_API_URL=http://localhost:8000
-VITE_USE_MOCKS=true                                   # Member 1 keeps her mocks
-VITE_LIVE_APIS=taxes,discounts,users,settings,lookups # Member 2 modules on the real backend
+VITE_USE_MOCKS=true      # Member 1 keeps her mocks
+VITE_LIVE_APIS=taxes,discounts,users,settings,lookups,invoices,payments,reports,portal,ai
 ```
 
 - Restart `npm run dev` after changing `.env`.
-- Listing **any** module also switches **auth** (login, sign-up, forgot/reset password) and **account**
-  (profile, change password) to the backend — real APIs only accept real login tokens.
-- Leave `VITE_LIVE_APIS` empty to go back to full mock mode.
-- The backend must allow the frontend origin: `FRONTEND_URL=http://localhost:5173` in the backend settings (CORS).
-- Log in with an account that exists in the **database** (mock demo accounts don't exist there).
+- Listing **any** module also switches **auth** and **account** to the backend (real APIs need real login tokens).
+- Remove a name to put just that module back on mocks; leave the line empty for full mock mode.
+- The backend must allow the frontend origin: `FRONTEND_URL=http://localhost:5173` (CORS).
+- Log in with a **database** account. Demo data: `python -m scripts.seed_demo` (see `backend/scripts/seed_demo.py`).
 
 ## 2. Status per module
 
-| Module | Live? | Backend endpoints | Notes / limitations in live mode |
+Every Member 2 module now runs on the real backend. The backend follows the contracts in this folder, so the
+adapters in `src/services/*Service.ts` only convert ids (UUID strings), decimal strings and `null`s.
+
+| Module | Live | Backend | Remaining limitations |
 |---|---|---|---|
-| Auth (login, sign-up, forgot, reset) | ✅ | `/api/auth/*` | Matches the contract exactly. |
-| Account (profile, password) | ✅ | `/api/settings/profile`, `/api/portal/profile`, `/api/auth/change-password` | Staff have no phone field; customer billing address isn't stored. **Changing your password signs you out** (the backend invalidates old tokens) — the UI says so and returns to login. |
-| Taxes | ✅ | `/api/taxes` | No per-rule product targeting (taxes are attached per product). `DELETE` deactivates, so "Delete" is hidden. No "can't deactivate the default" guard on the server — the UI enforces it. |
-| Discounts | ✅ | `/api/discounts`, `/api/discounts/validate` | Status, counts, code search and sorting are worked out in the browser over all discounts (max 100). `DELETE` deactivates, so "Delete" is hidden. `validate` returns the discount amount; product targeting isn't checked there. |
-| Product pickers | ✅ | `/api/products?status=active` | Used by discount product targeting. |
-| Users & staff | ✅ | `/api/users`, `/api/auth/forgot-password` | No invite link (temporary password only); no last-login / created dates (columns hidden); disabled filter and counts computed in the browser (max 100 accounts). Password reset uses the normal forgot-password email. |
-| Settings — Business / Automation | ✅ | `/api/settings` | GSTIN and bank/UPI aren't stored (fields disabled, invoices use defaults). Reminders are on/off only; no run time or overdue reminders. Customers can't read business settings, so the portal uses defaults. |
-| Invoices, billing run | ⏳ mock | `/api/invoices/*` | Needs the backend changes in §3. |
-| Payments | ⏳ mock | `/api/payments` | Needs §3. |
-| Reports | ⏳ mock | `/api/reports/*`, `/api/analytics/*` | Needs §3. |
-| Customer portal (home, invoices) | ⏳ mock | `/api/portal/*` | Needs §3. |
-| AI assistant | ⏳ mock | `/api/ai/chat`, `/api/ai/approve` | Needs §3. |
+| Auth, account | ✅ | `/api/auth/*`, `/api/settings/profile`, `/api/portal/profile` | Staff have no phone field. **Changing your password signs you out** (old tokens are invalidated). |
+| Invoices + billing run | ✅ | `/api/invoices`, `/summary`, `/due-preview`, `/generate-due`, actions | Sorting by customer name falls back to invoice date. "Send" needs SMTP on the server (otherwise 503 with a clear message). |
+| Payments | ✅ | `/api/payments`, `/summary` | — |
+| Discounts | ✅ | `/api/discounts`, `/counts`, `/validate` | — |
+| Taxes | ✅ | `/api/taxes`, `/{id}/default` | `DELETE` deactivates (so "Delete" stays hidden). |
+| Users & staff | ✅ | `/api/users`, `/counts`, `/{id}/password-reset` | Invite / reset emails need SMTP; without it the user is still created and the message says so. List is newest first (no sort). |
+| Settings | ✅ | `/api/settings`, `/api/settings/business` | — |
+| Reports | ✅ | `/api/reports`, `/options` | "Time to pay" shows the average only (no day buckets yet). Burn-down groups unpaid balance by due month. |
+| Customer portal | ✅ | `/api/portal/*` | Subscriptions on Portal Home show the number instead of the plan name (not sent by `/portal/subscriptions`). |
+| AI assistant | ✅ | `/api/ai/chat`, `/api/ai/actions/{id}/approve\|reject` | Needs `GEMINI_API_KEY` (or OpenAI) on the server; without it the assistant replies that it's unavailable. |
 
-All adapters live in the service files (`src/services/*Service.ts`): each maps backend fields (snake_case names,
-UUID ids, money as decimal strings) to the UI's types, so pages didn't change.
+## 3. Original backend change request (now implemented)
 
-## 3. Backend changes needed for the remaining modules
-
-These are small serializer/query additions — no new tables. With them, each module switches live without UI changes.
+Kept for reference — the backend commit `bb2aba5` implemented these. Small follow-ups still open: plan name in `/api/portal/subscriptions`, day buckets for `payment_timing`, sort by customer name for invoices.
 
 ### Invoices (`backend/app/routers/invoices.py`)
 1. **List + detail rows:** add `customer_name`, `subscription_number`, `plan_name`. Without them the list can only show UUIDs.

@@ -10,6 +10,7 @@ import { TextField } from "@/components/ui/TextField";
 import { Textarea } from "@/components/ui/Textarea";
 import { useToast } from "@/components/ui/Toast";
 import { useListQuery } from "@/hooks/useListQuery";
+import type { Id } from "@/types/common";
 import { cn } from "@/lib/cn";
 import { formatCurrency, formatDate, toIsoDate } from "@/lib/format";
 import { invoiceService } from "@/services/invoiceService";
@@ -18,7 +19,7 @@ import type { ApiError } from "@/services/api";
 import { PAYMENT_METHOD_LABELS, type Invoice, type InvoiceListQuery, type PaymentMethod } from "@/types/invoice";
 
 export interface PayableInvoice {
-  id: number;
+  id: Id;
   number: string;
   customer_name: string;
   balance: number;
