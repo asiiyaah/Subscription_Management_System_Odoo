@@ -378,3 +378,86 @@ function allPaymentRows(): PaymentRow[] {
     })),
   );
 }
+
+// --- Read-only insights for the AI assistant mock (mocks/ai.ts) --------------------
+// The real AI service calls backend functions that compute these from the database.
+
+// Contract end dates, spread so a few fall within the next week or two.
+const CONTRACT_END_OFFSETS = [3, 6, 12, 25, 40, 2, 70, 9, 5, 100, 15, 30];
+
+function monthlyValue(sub: MockSubscription): number {
+  const base = sub.plan.price * sub.quantity + (sub.addOn?.price ?? 0);
+  return round(base * (1 - (sub.discount?.rate ?? 0)));
+}
+
+export const billingInsights = {
+  expiringSubscriptions(days: number) {
+    const t = today();
+    return SUBSCRIPTIONS.map((sub, i) => ({
+      subscription_id: sub.id,
+      subscription_number: sub.number,
+      customer_name: CUSTOMERS.find((c) => c.id === sub.customerId)!.name,
+      customer_email: CUSTOMERS.find((c) => c.id === sub.customerId)!.email,
+      plan_name: sub.plan.name,
+      end_date: iso(new Date(t.getTime() + CONTRACT_END_OFFSETS[i] * DAY)),
+      days_left: CONTRACT_END_OFFSETS[i],
+      monthly_value: monthlyValue(sub),
+    }))
+      .filter((row) => row.days_left <= days)
+      .sort((a, b) => a.days_left - b.days_left);
+  },
+
+  overdueInvoices() {
+    return INVOICES.map(refreshOverdue)
+      .filter((inv) => inv.is_overdue)
+      .map((inv) => ({
+        id: inv.id,
+        number: inv.number,
+        customer_name: inv.customer_name,
+        due_date: inv.due_date,
+        days_overdue: Math.round((today().getTime() - new Date(inv.due_date).getTime()) / DAY),
+        balance: inv.balance,
+      }))
+      .sort((a, b) => b.days_overdue - a.days_overdue);
+  },
+
+  revenueSummary() {
+    const monthPrefix = iso(today()).slice(0, 7);
+    const live = INVOICES.map(refreshOverdue).filter((inv) => inv.status !== "cancelled" && inv.status !== "draft");
+    return {
+      mrr: round(SUBSCRIPTIONS.reduce((sum, sub) => sum + monthlyValue(sub), 0)),
+      active_subscriptions: SUBSCRIPTIONS.length,
+      collected_this_month: round(allPaymentRows().filter((p) => p.payment_date.startsWith(monthPrefix)).reduce((s, p) => s + p.amount, 0)),
+      outstanding: round(live.reduce((s, inv) => s + inv.balance, 0)),
+      overdue: round(live.filter((inv) => inv.is_overdue).reduce((s, inv) => s + inv.balance, 0)),
+    };
+  },
+
+  revenueByPlan() {
+    const byPlan = new Map<string, { revenue: number; subscriptions: number; mrr: number }>();
+    for (const plan of PLANS) byPlan.set(plan.name, { revenue: 0, subscriptions: 0, mrr: 0 });
+    for (const sub of SUBSCRIPTIONS) {
+      const entry = byPlan.get(sub.plan.name)!;
+      entry.subscriptions += 1;
+      entry.mrr = round(entry.mrr + monthlyValue(sub));
+    }
+    for (const inv of INVOICES) {
+      const entry = byPlan.get(inv.plan_name);
+      if (entry) entry.revenue = round(entry.revenue + inv.amount_paid);
+    }
+    return [...byPlan.entries()].map(([plan_name, v]) => ({ plan_name, ...v })).sort((a, b) => b.revenue - a.revenue);
+  },
+
+  outstandingByCustomer() {
+    const byCustomer = new Map<string, { invoices: number; balance: number; overdue: number }>();
+    for (const inv of INVOICES.map(refreshOverdue)) {
+      if (inv.status !== "confirmed" || inv.balance <= 0) continue;
+      const entry = byCustomer.get(inv.customer_name) ?? { invoices: 0, balance: 0, overdue: 0 };
+      entry.invoices += 1;
+      entry.balance = round(entry.balance + inv.balance);
+      if (inv.is_overdue) entry.overdue = round(entry.overdue + inv.balance);
+      byCustomer.set(inv.customer_name, entry);
+    }
+    return [...byCustomer.entries()].map(([customer_name, v]) => ({ customer_name, ...v })).sort((a, b) => b.balance - a.balance);
+  },
+};
