@@ -143,3 +143,44 @@ export const mockSubscriptions = {
     rows = rows.map((row) => row.id === id ? { ...row, ...changes, updated_at: new Date().toISOString() } : row);
     return clone(find(id));
   },
+  async action(id: string, action: SubscriptionAction): Promise<Subscription> {
+    await mockDelay(350);
+    const current = find(id);
+    const transitions: Record<string, string[]> = { draft: ["confirm", "close"], quotation: ["confirm", "close"], confirmed: ["activate", "close"], active: ["pause", "renew", "close"], paused: ["resume", "close"], closed: [] };
+    if (action === "renew" && ["active", "closed"].includes(current.status)) {
+      const plans = await Promise.all(current.lines.filter((line) => line.plan_id).map((line) => mockPlans.getById(line.plan_id!)));
+      if (plans.some((plan) => !plan.is_renewable)) throw new ApiError(409, "The selected plan does not allow renewal.");
+      const updated = { ...current, status: "active" as const, start_date: current.status === "closed" ? today() : current.start_date, end_date: null };
+      rows = rows.map((row) => row.id === id ? { ...updated, history: [...(row.history ?? []), { previous_status: row.status, new_status: "active", action, created_at: new Date().toISOString() }] } : row);
+      return clone(find(id));
+    }
+    if (!transitions[current.status]?.includes(action)) throw new ApiError(409, `Cannot ${action} a ${current.status} subscription.`);
+    const linkedPlans = await Promise.all(current.lines.filter((line) => line.plan_id).map((line) => mockPlans.getById(line.plan_id!)));
+    if (action === "pause" && linkedPlans.some((plan) => !plan.is_pausable)) throw new ApiError(409, "The selected plan does not allow pausing.");
+    if (action === "resume" && linkedPlans.some((plan) => !plan.is_renewable)) throw new ApiError(409, "The selected plan does not allow resuming.");
+    if (action === "close" && linkedPlans.some((plan) => !plan.allows_early_closure) && (!current.end_date || current.end_date > today())) throw new ApiError(409, "The selected plan does not allow early closure.");
+    if (action === "confirm" && current.quotation_valid_until && current.quotation_valid_until < today()) throw new ApiError(409, "Quotation has expired.");
+    const target = ({ confirm: "confirmed", activate: "active", pause: "paused", resume: "active", close: "closed" } as const)[action as Exclude<SubscriptionAction, "renew">];
+    const patch: Partial<Subscription> = { status: target };
+    if (action === "close") patch.end_date = today();
+    if (action === "activate") patch.start_date ??= today();
+    rows = rows.map((row) => row.id === id ? { ...row, ...patch, history: [...(row.history ?? []), { previous_status: row.status, new_status: target, action, created_at: new Date().toISOString() }] } : row);
+    return clone(find(id));
+  },
+  async customers(search = ""): Promise<SubscriptionCustomerOption[]> {
+    const result = await mockCustomers.list({ page: 1, page_size: 100, search });
+    return result.items.map((item) => ({ id: String(item.id), name: item.name, email: item.email, company: item.company }));
+  },
+  async products(page = 1): Promise<Paginated<SubscriptionProductDetail>> {
+    const result = await mockProducts.list({ page, page_size: 100, status: "active" });
+    const items = await Promise.all(result.items.map((item) => productDetail(String(item.id))));
+    return { ...result, items };
+  },
+  async product(id: string): Promise<SubscriptionProductDetail> { await mockDelay(180); return productDetail(id); },
+  async discounts(): Promise<SubscriptionDiscountOption[]> {
+    const result = await mockDiscounts.list({ page: 1, page_size: 100 });
+    return result.items.filter((item) => item.status === "active").map((item) => ({ id: String(item.id), code: item.code, name: item.name, active: item.active, status: item.status }));
+  },
+  async templates(): Promise<SubscriptionTemplateOption[]> { await mockDelay(250); return clone(templates.filter((item) => item.status === "active")); },
+  async invoices(_id: string): Promise<SubscriptionInvoicePage> { await mockDelay(150); return { items: [], total: 0, page: 1, page_size: 5 }; },
+};
