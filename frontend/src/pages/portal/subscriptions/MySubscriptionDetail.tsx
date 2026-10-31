@@ -32,6 +32,11 @@ export default function MySubscriptionDetail() {
     queryFn: () => portalService.subscription(id),
     enabled: Boolean(id),
   });
+  const invoices = useQuery({
+    queryKey: ["portal", "subscription-invoices", id],
+    queryFn: () => portalService.subscriptionInvoices(id),
+    enabled: Boolean(id),
+  });
   const action = useMutation<unknown, ApiError, Action>({
     mutationFn: (kind) => portalService.subscriptionAction(id, kind),
     onSuccess: (_, kind) => {
