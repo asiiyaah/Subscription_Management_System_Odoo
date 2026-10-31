@@ -1,6 +1,6 @@
 // Stand-in for GET /api/reports: aggregates the billing mock the way the backend will (SQL GROUP BYs).
 import { billingSnapshot } from "@/mocks/billing";
-import { mockDelay } from "@/mocks/utils";
+import { localIso, mockDelay } from "@/mocks/utils";
 import type { ProductOption } from "@/types/common";
 import type { PaymentMethod } from "@/types/invoice";
 import type { ReportData, ReportFilters, SubscriptionStatus } from "@/types/report";
@@ -19,6 +19,12 @@ const PIPELINE: Array<{ number: string; customer_id: number; plan_name: string; 
   { number: "SUB-0019", customer_id: 8, plan_name: "Pro Monthly", status: "closed", mrr: 2997 },
 ];
 const STATUS_ORDER: SubscriptionStatus[] = ["draft", "quotation", "confirmed", "active", "paused", "closed"];
+const TIMING = [
+  { bucket: "0–7 days", min: 0, max: 7 },
+  { bucket: "8–15 days", min: 8, max: 15 },
+  { bucket: "16–30 days", min: 16, max: 30 },
+  { bucket: "31+ days", min: 31, max: Infinity },
+];
 const AGING = [
   { bucket: "1–30 days", min: 1, max: 30 },
   { bucket: "31–60 days", min: 31, max: 60 },
@@ -87,7 +93,7 @@ export const mockReports = {
         ...p,
         id: 100 + i,
         customer_name: snap.customers.find((c) => c.id === p.customer_id)!.name,
-        start_date: new Date(today.getTime() - (i + 1) * 9 * DAY).toISOString().slice(0, 10),
+        start_date: localIso(new Date(today.getTime() - (i + 1) * 9 * DAY)),
       })),
     ].filter((s) => matches(s.plan_name, s.customer_id));
     const active = subscriptions.filter((s) => s.status === "active");
@@ -101,6 +107,24 @@ export const mockReports = {
     const collectedByPlan = sumBy(payments, (p) => planByInvoice.get(p.invoice_id) ?? "Other", (p) => p.amount);
     const byMethod = sumBy(payments, (p) => p.method, (p) => p.amount);
     const statusCounts = sumBy(subscriptions, (s) => s.status, () => 1);
+
+    // Days from invoice to payment
+    const invoiceDate = new Map(snap.invoices.map((inv) => [inv.id, inv.invoice_date]));
+    const paymentDays = payments.map((p) => ({
+      amount: p.amount,
+      days: Math.max(0, Math.round((new Date(`${p.payment_date}T00:00:00`).getTime() - new Date(`${invoiceDate.get(p.invoice_id) ?? p.payment_date}T00:00:00`).getTime()) / DAY)),
+    }));
+
+    // Unpaid balance at each month end (burn-down)
+    const scopedPayments = snap.payments.filter((p) => matches(planByInvoice.get(p.invoice_id) ?? "", p.customer_id));
+    const todayIso = localIso(today);
+    const outstandingAt = (date: string) => {
+      const issued = live.filter((inv) => inv.invoice_date <= date);
+      const issuedIds = new Set(issued.map((inv) => inv.id));
+      const billed = issued.reduce((s, inv) => s + inv.total, 0);
+      const paid = scopedPayments.filter((p) => issuedIds.has(p.invoice_id) && p.payment_date <= date).reduce((s, p) => s + p.amount, 0);
+      return round(billed - paid);
+    };
     const plansSeen = [...new Set(subscriptions.map((s) => s.plan_name))];
 
     return {
@@ -145,6 +169,16 @@ export const mockReports = {
         id, number, payment_date, customer_name, invoice_id, invoice_number, method, amount,
       })),
       payments_total: payments.length,
+      payment_timing: TIMING.map(({ bucket, min, max }) => {
+        const rows = paymentDays.filter((p) => p.days >= min && p.days <= max);
+        return { bucket, count: rows.length, amount: round(rows.reduce((s, r) => s + r.amount, 0)) };
+      }),
+      avg_days_to_pay: paymentDays.length ? Math.round(paymentDays.reduce((s, p) => s + p.days, 0) / paymentDays.length) : null,
+      outstanding_by_month: months.map((month) => {
+        const [y, m] = month.split("-").map(Number);
+        const monthEnd = localIso(new Date(y, m, 0));
+        return { month, outstanding: outstandingAt(monthEnd < todayIso ? monthEnd : todayIso) };
+      }),
       overdue_aging: AGING.map(({ bucket, min, max }) => {
         const rows = overdueInvoices.filter((inv) => inv.days_overdue >= min && inv.days_overdue <= max);
         return { bucket, amount: round(rows.reduce((s, r) => s + r.balance, 0)), count: rows.length };

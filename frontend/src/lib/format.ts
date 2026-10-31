@@ -60,3 +60,8 @@ export function formatRelativeDays(value: string | Date): string {
   if (days === -1) return "Yesterday";
   return days > 0 ? `in ${days} days` : `${-days} days ago`;
 }
+
+/** Date → "YYYY-MM-DD" in the user's time zone (for <input type="date"> and API params). */
+export function toIsoDate(date: Date = new Date()): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}

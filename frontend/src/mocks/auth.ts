@@ -12,8 +12,12 @@ import type {
   User,
 } from "@/types/auth";
 
-interface MockUser extends User {
+export interface MockUser extends User {
   password: string;
+  /** false = disabled by an admin; can't log in. Missing = true. */
+  active?: boolean;
+  last_login?: string | null;
+  created_at?: string;
 }
 
 const USERS_KEY = "subscriptiq.mock.users";
@@ -28,12 +32,12 @@ const SEED_USERS: MockUser[] = [
 
 const delay = (ms = 600) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function loadUsers(): MockUser[] {
+export function loadUsers(): MockUser[] {
   const raw = localStorage.getItem(USERS_KEY);
   return raw ? (JSON.parse(raw) as MockUser[]) : [...SEED_USERS];
 }
 
-function saveUsers(users: MockUser[]): void {
+export function saveUsers(users: MockUser[]): void {
   localStorage.setItem(USERS_KEY, JSON.stringify(users));
 }
 
@@ -41,8 +45,8 @@ function loadResetTokens(): Record<string, { email: string; expires: number }> {
   return JSON.parse(localStorage.getItem(RESET_KEY) ?? "{}");
 }
 
-function publicUser({ password: _password, ...user }: MockUser): User {
-  return user;
+function publicUser({ id, name, email, role }: MockUser): User {
+  return { id, name, email, role };
 }
 
 export const mockAuth = {
@@ -52,6 +56,10 @@ export const mockAuth = {
     if (!user || user.password !== password) {
       throw new ApiError(401, "Incorrect email or password.");
     }
+    if (user.active === false) {
+      throw new ApiError(403, "This account has been disabled. Contact your admin.");
+    }
+    saveUsers(loadUsers().map((u) => (u.id === user.id ? { ...u, last_login: new Date().toISOString() } : u)));
     return { access_token: `mock-token-${user.id}`, token_type: "bearer", user: publicUser(user) };
   },
 

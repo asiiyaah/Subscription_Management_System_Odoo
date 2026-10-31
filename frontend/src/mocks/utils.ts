@@ -48,3 +48,6 @@ export function paginate<T extends object>(
     page_size: query.page_size,
   };
 }
+
+/** YYYY-MM-DD in the user's time zone (toISOString() would shift local midnight to the previous day in India). */
+export { toIsoDate as localIso } from "@/lib/format";

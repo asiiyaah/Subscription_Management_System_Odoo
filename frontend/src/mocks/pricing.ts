@@ -1,7 +1,7 @@
 // In-memory stand-in for the discounts / taxes / product-lookup API until the backend is ready.
 // Seed data matches mocks/billing.ts (SEATS10 discount, GST 18% default tax). Resets on reload.
 import { ApiError } from "@/services/api";
-import { mockDelay, paginate } from "@/mocks/utils";
+import { localIso, mockDelay, paginate } from "@/mocks/utils";
 import type { Paginated, ProductOption } from "@/types/common";
 import type {
   Discount,
@@ -14,7 +14,7 @@ import type {
 } from "@/types/discount";
 import type { TaxInput, TaxRule } from "@/types/tax";
 
-const iso = (d: Date) => d.toISOString().slice(0, 10);
+const iso = localIso;
 const daysFromToday = (n: number) => iso(new Date(Date.now() + n * 86_400_000));
 const todayIso = () => iso(new Date());
 
