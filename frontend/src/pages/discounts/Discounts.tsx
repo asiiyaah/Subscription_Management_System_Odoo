@@ -129,7 +129,8 @@ export default function Discounts() {
         ? { label: "Deactivate", icon: <Pause />, onSelect: () => setPending({ kind: "deactivate", discount: d }) }
         : { label: "Activate", icon: <Play />, onSelect: () => activeMutation.mutate({ discount: d, active: true }) },
       // Used discounts are kept for invoice history; they can only be deactivated.
-      d.used_count === 0 && { label: "Delete", icon: <Trash2 />, tone: "danger", onSelect: () => setPending({ kind: "delete", discount: d }) },
+      d.used_count === 0 &&
+        discountService.capabilities.hardDelete && { label: "Delete", icon: <Trash2 />, tone: "danger", onSelect: () => setPending({ kind: "delete", discount: d }) },
     ];
     return items.filter((item): item is MenuAction => item !== false);
   }

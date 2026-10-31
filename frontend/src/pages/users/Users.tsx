@@ -61,12 +61,12 @@ export default function Users() {
   });
 
   const resetMutation = useMutation<{ message: string }, ApiError, TeamMember>({
-    mutationFn: (member) => userService.sendPasswordReset(member.id),
+    mutationFn: (member) => userService.sendPasswordReset(member),
     onSuccess: ({ message }) => toast.success(message),
     onError: (error) => toast.error(error.message),
   });
 
-  const columns: Column<TeamMember>[] = [
+  const allColumns: Column<TeamMember>[] = [
     {
       key: "name",
       header: "Name",
@@ -119,6 +119,10 @@ export default function Users() {
     },
     { key: "created_at", header: "Added", sortable: true, render: (u) => formatDate(u.created_at) },
   ];
+  // Hide dates the connected backend doesn't send.
+  const columns = allColumns.filter(
+    (col) => userService.capabilities.activityDates || (col.key !== "last_login" && col.key !== "created_at"),
+  );
 
   function menuFor(u: TeamMember): MenuAction[] {
     const isSelf = u.id === me?.id;

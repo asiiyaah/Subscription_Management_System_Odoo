@@ -3,6 +3,7 @@
 import { ApiError } from "@/services/api";
 import { isPasswordValid } from "@/lib/password";
 import type { ChangePasswordRequest, Profile, ProfileUpdate } from "@/types/settings";
+import type { Id } from "@/types/common";
 import type {
   ForgotPasswordRequest,
   LoginRequest,
@@ -75,7 +76,7 @@ export const mockAuth = {
       throw new ApiError(409, "An account with this email already exists.");
     }
     const user: MockUser = {
-      id: Math.max(...users.map((u) => u.id)) + 1,
+      id: Math.max(...users.map((u) => Number(u.id) || 0)) + 1, // mock ids are numbers
       name: data.name,
       email: data.email,
       role: "customer",
@@ -120,7 +121,7 @@ export const mockAuth = {
 
 /** The signed-in user's own account (Settings → Profile, Portal → Profile). The backend uses the JWT for the id. */
 export const mockAccount = {
-  async getProfile(userId: number): Promise<Profile> {
+  async getProfile(userId: Id): Promise<Profile> {
     await delay(300);
     const user = loadUsers().find((u) => u.id === userId);
     if (!user) throw new ApiError(401, "Please log in again.");
@@ -128,7 +129,7 @@ export const mockAccount = {
     return { id, name, email, phone, company, billing_address };
   },
 
-  async updateProfile(userId: number, input: ProfileUpdate): Promise<Profile> {
+  async updateProfile(userId: Id, input: ProfileUpdate): Promise<Profile> {
     await delay();
     if (!input.name.trim()) throw new ApiError(422, "Name can't be empty.");
     const users = loadUsers().map((u) => (u.id === userId ? { ...u, ...input, name: input.name.trim() } : u));
@@ -136,7 +137,7 @@ export const mockAccount = {
     return this.getProfile(userId);
   },
 
-  async changePassword(userId: number, { current_password, new_password }: ChangePasswordRequest): Promise<{ message: string }> {
+  async changePassword(userId: Id, { current_password, new_password }: ChangePasswordRequest): Promise<{ message: string }> {
     await delay();
     const user = loadUsers().find((u) => u.id === userId);
     if (!user) throw new ApiError(401, "Please log in again.");

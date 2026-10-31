@@ -1,3 +1,6 @@
+/** Record id: numbers in the mocks, UUID strings from the real backend. Never do maths on it. */
+export type Id = number | string;
+
 /** Every list endpoint returns one page of results in this shape. */
 export interface Paginated<T> {
   items: T[];
@@ -23,6 +26,6 @@ export interface ListQuery {
 
 /** Minimal product reference for pickers (discount and tax rules). */
 export interface ProductOption {
-  id: number;
+  id: Id;
   name: string;
 }

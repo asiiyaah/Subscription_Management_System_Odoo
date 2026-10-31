@@ -2,7 +2,7 @@
 // Seed data matches mocks/billing.ts (SEATS10 discount, GST 18% default tax). Resets on reload.
 import { ApiError } from "@/services/api";
 import { localIso, mockDelay, paginate } from "@/mocks/utils";
-import type { Paginated, ProductOption } from "@/types/common";
+import type { Id, Paginated, ProductOption } from "@/types/common";
 import type {
   Discount,
   DiscountCounts,
@@ -27,7 +27,7 @@ const PRODUCTS: ProductOption[] = [
   { id: 5, name: "Extra Seats (add-on)" },
 ];
 
-const productNames = (ids: number[]) =>
+const productNames = (ids: Id[]) =>
   ids.map((id) => PRODUCTS.find((p) => p.id === id)?.name).filter((name): name is string => Boolean(name));
 
 // --- Discounts -------------------------------------------------------------------
@@ -57,13 +57,13 @@ const DISCOUNT_SEED: Array<Omit<Discount, "id" | "status" | "product_names">> = 
 ];
 const DISCOUNTS: Discount[] = DISCOUNT_SEED.map((d) => withDerived({ ...d, id: nextDiscountId++ }));
 
-function findDiscount(id: number): Discount {
+function findDiscount(id: Id): Discount {
   const discount = DISCOUNTS.find((d) => d.id === id);
   if (!discount) throw new ApiError(404, "Discount not found.");
   return discount;
 }
 
-function checkDiscount(input: DiscountInput, ignoreId?: number) {
+function checkDiscount(input: DiscountInput, ignoreId?: Id) {
   const code = input.code.trim().toUpperCase();
   if (DISCOUNTS.some((d) => d.code === code && d.id !== ignoreId)) {
     throw new ApiError(409, `The code ${code} is already used by another discount.`);
@@ -107,7 +107,7 @@ export const mockDiscounts = {
     return structuredClone(discount);
   },
 
-  async update(id: number, input: DiscountInput): Promise<Discount> {
+  async update(id: Id, input: DiscountInput): Promise<Discount> {
     await mockDelay();
     const current = findDiscount(id);
     checkDiscount(input, id);
@@ -118,13 +118,13 @@ export const mockDiscounts = {
     return saveDiscount(index, { ...current, ...input, code: input.code.trim().toUpperCase() });
   },
 
-  async setActive(id: number, active: boolean): Promise<Discount> {
+  async setActive(id: Id, active: boolean): Promise<Discount> {
     await mockDelay(400);
     const current = findDiscount(id);
     return saveDiscount(DISCOUNTS.indexOf(current), { ...current, active });
   },
 
-  async remove(id: number): Promise<void> {
+  async remove(id: Id): Promise<void> {
     await mockDelay(400);
     const current = findDiscount(id);
     if (current.used_count > 0) {
@@ -150,11 +150,11 @@ export const mockDiscounts = {
     if (found.min_quantity && req.quantity < found.min_quantity) {
       return { valid: false, reason: `Needs at least ${found.min_quantity} seats/units.` };
     }
-    if (found.applies_to === "products" && !found.product_ids.some((id) => req.product_ids.includes(id))) {
+    if (found.applies_to === "products" && !found.product_ids.some((id) => (req.product_ids ?? []).includes(id))) {
       return { valid: false, reason: `Only applies to: ${found.product_names.join(", ")}.` };
     }
-    const { id, code, name, type, value, applies_to, product_ids } = found;
-    return { valid: true, discount: { id, code, name, type, value, applies_to, product_ids } };
+    const amount = found.type === "percentage" ? (req.subtotal * found.value) / 100 : found.value;
+    return { valid: true, discount_id: found.id, code: found.code, discount_amount: Math.round(Math.min(req.subtotal, amount) * 100) / 100 };
   },
 };
 
@@ -169,13 +169,13 @@ const TAX_SEED: TaxInput[] = [
 ];
 const TAXES: TaxRule[] = TAX_SEED.map((t) => ({ ...t, id: nextTaxId++, product_names: productNames(t.product_ids) }));
 
-function findTax(id: number): TaxRule {
+function findTax(id: Id): TaxRule {
   const tax = TAXES.find((t) => t.id === id);
   if (!tax) throw new ApiError(404, "Tax rule not found.");
   return tax;
 }
 
-function checkTax(input: TaxInput, ignoreId?: number) {
+function checkTax(input: TaxInput, ignoreId?: Id) {
   if (TAXES.some((t) => t.name.toLowerCase() === input.name.trim().toLowerCase() && t.id !== ignoreId)) {
     throw new ApiError(409, `A tax rule called "${input.name.trim()}" already exists.`);
   }
@@ -185,7 +185,7 @@ function checkTax(input: TaxInput, ignoreId?: number) {
 }
 
 /** Keeps exactly one default: making one default clears the others. */
-function applyDefault(id: number) {
+function applyDefault(id: Id) {
   TAXES.forEach((t) => (t.is_default = t.id === id));
 }
 
@@ -204,7 +204,7 @@ export const mockTaxes = {
     return structuredClone(tax);
   },
 
-  async update(id: number, input: TaxInput): Promise<TaxRule> {
+  async update(id: Id, input: TaxInput): Promise<TaxRule> {
     await mockDelay();
     const current = findTax(id);
     checkTax(input, id);
@@ -216,7 +216,7 @@ export const mockTaxes = {
     return structuredClone(current);
   },
 
-  async setDefault(id: number): Promise<TaxRule> {
+  async setDefault(id: Id): Promise<TaxRule> {
     await mockDelay(400);
     const tax = findTax(id);
     if (!tax.active) throw new ApiError(422, "Activate this tax before making it the default.");
@@ -224,7 +224,7 @@ export const mockTaxes = {
     return structuredClone(tax);
   },
 
-  async setActive(id: number, active: boolean): Promise<TaxRule> {
+  async setActive(id: Id, active: boolean): Promise<TaxRule> {
     await mockDelay(400);
     const tax = findTax(id);
     if (!active && tax.is_default) throw new ApiError(422, "The default tax can't be deactivated. Make another tax the default first.");
@@ -232,7 +232,7 @@ export const mockTaxes = {
     return structuredClone(tax);
   },
 
-  async remove(id: number): Promise<void> {
+  async remove(id: Id): Promise<void> {
     await mockDelay(400);
     const tax = findTax(id);
     if (tax.is_default) throw new ApiError(409, "The default tax can't be deleted. Make another tax the default first.");

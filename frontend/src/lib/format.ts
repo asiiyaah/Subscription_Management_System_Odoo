@@ -33,14 +33,20 @@ export function formatNumber(value: number): string {
   return number.format(value);
 }
 
-/** 31 Oct 2026 */
-export function formatDate(value: string | Date): string {
-  return date.format(new Date(value));
+const isValid = (d: Date) => !Number.isNaN(d.getTime());
+
+/** 31 Oct 2026 — or "—" when the backend sent no date. */
+export function formatDate(value: string | Date | null | undefined): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  return isValid(d) ? date.format(d) : "—";
 }
 
-/** 31 Oct 2026, 2:30 pm */
-export function formatDateTime(value: string | Date): string {
-  return dateTime.format(new Date(value));
+/** 31 Oct 2026, 2:30 pm — or "—" when missing. */
+export function formatDateTime(value: string | Date | null | undefined): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  return isValid(d) ? dateTime.format(d) : "—";
 }
 
 /** Whole days from today to `value` (negative = in the past). */
