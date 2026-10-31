@@ -104,3 +104,42 @@ function find(id: string): Subscription {
 }
 const clone = <T,>(value: T): T => structuredClone(value);
 
+export const mockSubscriptions = {
+  async list(query: SubscriptionListQuery): Promise<Paginated<Subscription>> {
+    await mockDelay();
+    return paginate(rows, query, ["subscription_number", "customer_name", "status"]);
+  },
+  async get(id: string): Promise<Subscription> { await mockDelay(); return clone(find(id)); },
+  async preview(input: SubscriptionCreate): Promise<SubscriptionPreview> { await mockDelay(300); return price(input); },
+  async create(input: SubscriptionCreate): Promise<Subscription> {
+    await mockDelay();
+    if (!input.lines.length) throw new ApiError(422, "Add at least one product line.");
+    if (!["draft", "quotation"].includes(input.status)) throw new ApiError(422, "New subscriptions must start in draft or quotation status.");
+    const customer = await mockCustomers.getById(Number(input.customer_id));
+    const preview = await price(input);
+    const firstPlan = input.lines.find((line) => line.plan_id)?.plan_id;
+    const plan = firstPlan ? await mockPlans.getById(firstPlan) : undefined;
+    const value: Subscription = {
+      id: uuid(), subscription_number: `SUB-${String(nextId - 1).padStart(4, "0")}`, customer_id: input.customer_id,
+      customer_name: customer.name, customer_email: customer.email, status: input.status, start_date: input.start_date ?? null,
+      end_date: input.end_date ?? null, quotation_valid_until: input.quotation_valid_until ?? null,
+      quotation_template_id: input.quotation_template_id ?? null, billing_period: plan?.billing_period ?? "monthly",
+      billing_interval: plan?.billing_interval ?? 1, subtotal: preview.subtotal, discount_total: preview.discount_total,
+      tax_total: preview.tax_total, total: preview.total, notes: input.notes ?? null,
+      lines: input.lines.map((line, index) => ({ id: `mock-line-${nextId}-${index}`, product_id: line.product_id, plan_id: line.plan_id ?? null,
+        product_attribute_value_id: line.product_attribute_value_id ?? null, product_name: line.product_id, plan_name: line.plan_id,
+        quantity: preview.lines[index].quantity, unit_price: preview.lines[index].unit_price,
+        discount_amount: preview.lines[index].discount, tax_amount: preview.lines[index].tax, line_total: preview.lines[index].total })),
+      history: [{ previous_status: null, new_status: input.status, action: "created", created_at: new Date().toISOString() }],
+    };
+    rows = [value, ...rows];
+    return clone(value);
+  },
+  async update(id: string, changes: SubscriptionUpdate): Promise<Subscription> {
+    await mockDelay();
+    const current = find(id);
+    if (!["draft", "quotation"].includes(current.status)) throw new ApiError(409, "Only draft or quotation subscriptions can be edited.");
+    if (changes.start_date && changes.end_date && changes.end_date < changes.start_date) throw new ApiError(422, "End date must be on or after the start date.");
+    rows = rows.map((row) => row.id === id ? { ...row, ...changes, updated_at: new Date().toISOString() } : row);
+    return clone(find(id));
+  },
