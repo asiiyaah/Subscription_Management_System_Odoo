@@ -7,7 +7,8 @@ def monthly_recurring_revenue(db):
     rows = db.query(Subscription).filter(Subscription.status == "active").all()
     total = Decimal("0")
     for sub in rows:
-        amount = Decimal(str(sub.total or 0))
+        amount = Decimal(str(sub.subtotal or sub.total or 0)) - Decimal(str(sub.discount_total or 0))
+        amount = max(amount, Decimal("0"))
         interval = max(int(sub.billing_interval or 1), 1)
         period = (sub.billing_period or "monthly").lower()
         if period == "daily":

@@ -159,8 +159,15 @@ def list_invoices(status_filter: str | None = Query(None, alias="status"), custo
         "balance": Invoice.balance_due, "balance_due": Invoice.balance_due,
         "total": Invoice.total, "invoice_date": Invoice.invoice_date, "due_date": Invoice.due_date,
         "status": Invoice.status, "created_at": Invoice.created_at}
-    column = columns.get(sort_by, Invoice.invoice_date)
-    query = query.order_by(column.asc() if sort_dir.lower() == "asc" else column.desc())
+    direction = sort_dir.lower()
+    if direction not in {"asc", "desc"}:
+        raise HTTPException(422, "sort_dir must be 'asc' or 'desc'")
+    if sort_by in {"customer", "customer_name"}:
+        column = Customer.name
+        query = query.join(Customer, Customer.id == Invoice.customer_id)
+    else:
+        column = columns.get(sort_by, Invoice.invoice_date)
+    query = query.order_by(column.asc() if direction == "asc" else column.desc(), Invoice.invoice_date.desc())
     total = query.count()
     rows = query.offset((page - 1) * page_size).limit(page_size).all()
     return {"items": [_invoice_dict(row) for row in rows], "total": total, "page": page, "page_size": page_size}

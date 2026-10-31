@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user, oauth2_scheme
+from app.core.config import settings
 from app.core.security import create_access_token, hash_password, verify_password, password_token_version, decode_access_token
 from app.database.connection import get_db
 from app.models.customer import Customer
@@ -98,7 +99,10 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 
 @router.post("/forgot-password", response_model=MessageResponse)
 def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    message = "If this email is registered, a password reset link has been sent to it."
+    email_configured = bool(settings.SMTP_HOST and settings.SMTP_FROM_EMAIL)
+    message = ("If this email is registered, a password reset link has been requested. If it does not arrive, check spam or contact your administrator."
+        if email_configured else
+        "If this email is registered, a reset link was created, but email delivery is not configured on the server. Contact your administrator to complete the reset.")
     user = db.query(User).filter(User.email == str(payload.email).lower(), User.is_active.is_(True)).first()
     if user:
         raw_token = create_password_reset_token(db, user)
