@@ -4,6 +4,7 @@ import {
   CreditCard,
   FileText,
   LayoutDashboard,
+  Percent,
   Layers,
   Package,
   Repeat,
@@ -33,5 +34,6 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Invoices", to: "/invoices", icon: FileText, roles: STAFF },
   { label: "Payments", to: "/payments", icon: CreditCard, roles: STAFF },
   { label: "Discounts", to: "/discounts", icon: TicketPercent, roles: STAFF },
+  { label: "Taxes", to: "/taxes", icon: Percent, roles: ["admin"] },
   { label: "Reports", to: "/reports", icon: BarChart3, roles: STAFF },
 ];
