@@ -41,6 +41,11 @@ export function useAuth(): AuthContextValue {
   return context;
 }
 
+/** True for admins — use to hide create/edit/delete from staff (R27: only the admin manages discounts). */
+export function useIsAdmin(): boolean {
+  return useAuth().user?.role === "admin";
+}
+
 /** Where each role lands after login. */
 export function homePathFor(role: Role): string {
   return role === "customer" ? "/portal" : "/";

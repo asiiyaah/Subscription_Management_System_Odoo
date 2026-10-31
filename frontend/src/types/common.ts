@@ -20,3 +20,9 @@ export interface ListQuery {
   sort_dir?: SortDirection;
   [filter: string]: string | number | undefined;
 }
+
+/** Minimal product reference for pickers (discount and tax rules). */
+export interface ProductOption {
+  id: number;
+  name: string;
+}

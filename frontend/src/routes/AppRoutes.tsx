@@ -18,6 +18,7 @@ import { subscriptionRoutes } from "@/pages/subscriptions/routes";
 import { invoiceRoutes } from "@/pages/invoices/routes";
 import { paymentRoutes } from "@/pages/payments/routes";
 import { discountRoutes } from "@/pages/discounts/routes";
+import { taxRoutes } from "@/pages/taxes/routes";
 import { aiRoutes } from "@/pages/ai/routes";
 import { reportRoutes } from "@/pages/reports/routes";
 
@@ -47,6 +48,7 @@ export function AppRoutes() {
             ...invoiceRoutes,
             ...paymentRoutes,
             ...discountRoutes,
+            ...taxRoutes,
             ...aiRoutes,
             ...reportRoutes,
             ...(import.meta.env.DEV ? devRoutes : []),
