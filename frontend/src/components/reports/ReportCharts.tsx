@@ -3,9 +3,8 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { CHART, formatMonth } from "@/lib/chartTheme";
 import { formatCurrency, formatNumber } from "@/lib/format";
 
-type ValueFormat = "currency" | "number";
-const fmt = (value: number, format: ValueFormat) => (format === "currency" ? formatCurrency(value) : formatNumber(value));
-const fmtAxis = (value: number, format: ValueFormat) =>
+export const fmt = (value: number, format: ValueFormat) => (format === "currency" ? formatCurrency(value) : formatNumber(value));
+export const fmtAxis = (value: number, format: ValueFormat) =>
   format === "currency" ? formatCurrency(value, { compact: true }) : formatNumber(value);
 
 /** Card frame for a chart: title, optional subtitle/legend, then the plot. */
@@ -38,18 +37,23 @@ export function Legend({ items }: { items: Array<{ label: string; color: string 
   );
 }
 
+export type ValueFormat = "currency" | "number";
+
 interface TooltipProps {
   active?: boolean;
   payload?: ReadonlyArray<{ dataKey?: unknown; name?: unknown; value?: unknown; color?: string }>;
   label?: unknown;
   format: ValueFormat;
+  /** How to show the x value; defaults to month names ("Aug 26"). */
+  labelFormat?: (label: string) => string;
 }
 
-function ChartTooltip({ active, payload, label, format }: TooltipProps) {
+/** Shared hover tooltip for Recharts charts: label, then one row per series. */
+export function ChartTooltip({ active, payload, label, format, labelFormat = formatMonth }: TooltipProps) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-xl border border-line bg-bg/95 px-3 py-2 text-xs shadow-xl shadow-black/40">
-      <p className="mb-1 font-semibold text-ink">{formatMonth(String(label))}</p>
+      <p className="mb-1 font-semibold text-ink">{labelFormat(String(label))}</p>
       {payload.map((entry) => (
         <p key={String(entry.dataKey)} className="flex items-center gap-2 text-muted">
           <span className="size-2 rounded-sm" style={{ background: entry.color }} aria-hidden />
@@ -118,7 +122,8 @@ export function RankedBars({
   format = "currency",
   empty = "No data for these filters.",
 }: {
-  rows: Array<{ label: ReactNode; value: number; hint?: string; key: string }>;
+  /** `color` per row only for ordered steps (CHART.ordinal); otherwise every bar is series 1. */
+  rows: Array<{ label: ReactNode; value: number; hint?: string; key: string; color?: string }>;
   format?: ValueFormat;
   empty?: string;
 }) {
@@ -135,7 +140,7 @@ export function RankedBars({
           <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-surface-2" aria-hidden>
             <div
               className="h-full rounded-full"
-              style={{ width: `${(row.value / max) * 100}%`, background: CHART.series1, minWidth: row.value > 0 ? 4 : 0 }}
+              style={{ width: `${(row.value / max) * 100}%`, background: row.color ?? CHART.series1, minWidth: row.value > 0 ? 4 : 0 }}
             />
           </div>
           {row.hint && <p className="mt-1 text-xs text-muted">{row.hint}</p>}

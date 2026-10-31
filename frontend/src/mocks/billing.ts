@@ -2,7 +2,7 @@
 // It plays the backend's role: it calculates totals/taxes/discounts and prevents double billing,
 // so the pages only display what comes back. Data resets on page reload.
 import { ApiError } from "@/services/api";
-import { mockDelay, paginate } from "@/mocks/utils";
+import { localIso, mockDelay, paginate } from "@/mocks/utils";
 import type { Paginated } from "@/types/common";
 import type {
   DueInvoicePreview,
@@ -21,7 +21,7 @@ const DAY = 86_400_000;
 const GST_RATE = 0.18;
 
 const round = (n: number) => Math.round(n * 100) / 100;
-const iso = (d: Date) => d.toISOString().slice(0, 10);
+const iso = localIso;
 const today = () => {
   const d = new Date();
   d.setHours(0, 0, 0, 0);

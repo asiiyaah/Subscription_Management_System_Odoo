@@ -53,6 +53,12 @@ export interface ReportData {
     amount: number;
   }>;
   payments_total: number;
+  /** Days from invoice date to payment, fixed order: 0–7, 8–15, 16–30, 31+ days. Payments in the range. */
+  payment_timing: Array<{ bucket: string; count: number; amount: number }>;
+  /** Average days from invoice to payment for payments in the range; null if none. */
+  avg_days_to_pay: number | null;
+  /** Unpaid balance at each month end (today for the current month) — the burn-down. */
+  outstanding_by_month: Array<{ month: string; outstanding: number }>;
   /** Fixed order: 1–30, 31–60, 61–90, 90+ days. */
   overdue_aging: Array<{ bucket: string; amount: number; count: number }>;
   overdue: Array<{

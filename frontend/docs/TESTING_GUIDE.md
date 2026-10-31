@@ -1,6 +1,6 @@
-# SubscriptIQ Frontend — Manual Testing Guide (Steps 2–6)
+# SubscriptIQ Frontend — Manual Testing Guide (Steps 2–7)
 
-How to check Invoices, Payments, Discounts & Taxes, the AI Assistant and Reports by hand.
+How to check Invoices, Payments, Discounts & Taxes, the AI Assistant, Reports and Users & Staff by hand.
 Each section has **flows** (a realistic story to walk through) and **checks** (tick them off).
 Requirement IDs (R22, R34 …) refer to [PROBLEM_STATEMENT.md](./PROBLEM_STATEMENT.md).
 
@@ -20,7 +20,7 @@ npm run dev          # open http://localhost:5173
 | Role | Use it to test |
 |---|---|
 | **Admin** | Everything (default for this guide) |
-| **Staff** | Read-only discounts, no Taxes page, can't approve AI actions |
+| **Staff** | Read-only discounts, no Taxes or Users & staff pages, can't approve AI actions |
 
 **Things to know about the mock data**
 
@@ -245,11 +245,27 @@ The finance lead's "one place" page (R37) with filters and a summary view (R38).
 1. Open **Reports** → default period **Last 3 months**; the date range shows at the right of the filter bar.
 2. Read the six summary cards: Active subscriptions, MRR (today), Invoiced in period, Collected in period,
    Outstanding (today), Overdue (count + amount).
-3. **Revenue** tab: "Invoiced vs collected" monthly bars (pink = invoiced, blue = collected, legend at top right),
-   "Invoiced by plan" ranked bars, and a **Monthly breakdown** table with a collection %.
-4. Hover a month's bars → tooltip with both amounts.
-5. Click the **Overdue** summary card → jumps to the **Overdue** tab: aging buckets + oldest-first overdue table.
-6. Click an invoice number → opens that invoice.
+3. **Revenue** tab, top row: "Invoiced vs collected" monthly bars (pink = invoiced, blue = collected) and the
+   **Collection rate** ring (collected ÷ invoiced, with a one-line verdict and both amounts underneath).
+4. Revenue tab, second row: **Revenue burn-up** — two running-total lines; the gap between them is what's still owed.
+   Hover anywhere on it → a vertical guide line and a tooltip with both totals for that month.
+5. "Invoiced by plan" ranked bars, then the **Monthly breakdown** table with collection %.
+6. Click the **Overdue** summary card → jumps to the **Overdue** tab.
+
+### Flow I-2: Read each chart (does it tell the right story?)
+| Tab | Chart | What to check |
+|---|---|---|
+| Revenue | Collection rate ring | % = Collected ÷ Invoiced from the summary cards (rounded). Verdict: ≥90% "Healthy", ≥70% "Some catching up", else "Lagging". |
+| Revenue | Revenue burn-up | Both lines only go **up** (running totals). The last point of each line equals the summary's Invoiced / Collected. |
+| Subscriptions | **MRR share by plan** donut | Centre shows total MRR = the "MRR (today)" card. Legend lists each plan with % and ₹; percentages add up to ~100%. Hover a slice → tooltip. Thin gaps between slices. |
+| Subscriptions | **Quote to active** funnel | Bars get shorter and brighter down the steps (Quoted → Confirmed → Activated → Still active), with "↓ N%" conversion between steps and "paused · closed" under the last bar. |
+| Subscriptions | Subscriptions by status | All six statuses in order (Draft → Closed) in two columns, with status badges. |
+| Payments | **Time to pay** histogram | Four buckets (0–7, 8–15, 16–30, 31+ days), bars brighter for slower payers; "N days average" at the top right. Hover a bar → count. |
+| Overdue | **Outstanding burn-down** | Pink line + soft fill of unpaid balance at each month end; top right shows ▲ (red, got worse) or ▼ (green, improved) since the first month. |
+| Overdue | Overdue by age | Four buckets with bars getting brighter for older debt. |
+
+- [ ] Set **Plan** = *Basic Monthly* → donut has a single slice at 100%.
+- [ ] Pick a customer with no payments in the period → Time to pay shows "No payments in this period."
 
 ### Flow J: Drill into one plan and one customer
 1. Set **Plan** = *Pro Monthly* → every card, chart and table updates (charts dim briefly while loading).
@@ -266,8 +282,7 @@ The finance lead's "one place" page (R37) with filters and a summary view (R38).
 ### Checks
 - [ ] Refresh the page (F5) → period, plan, customer and tab are kept (they're in the URL).
 - [ ] **This month** shows fewer months on the bar chart than **Last 6 months**; months with no activity show as zero (no gaps).
-- [ ] **Subscriptions** tab: status bars in order Draft → Quotation → Confirmed → Active → Paused → Closed with status
-      badges; "MRR by plan"; subscriptions table (subscription numbers link to the placeholder page).
+- [ ] **Subscriptions** tab table: subscription numbers link to the placeholder page.
 - [ ] **Payments** tab: monthly received bars (pink only — single series, no legend), "By method" bars, payments table.
 - [ ] Payments totals here match the **Payments** page for the same dates (use **This month** on both).
 - [ ] Record a payment on the Invoices page, come back to Reports → Collected and Outstanding update.
@@ -278,10 +293,51 @@ The finance lead's "one place" page (R37) with filters and a summary view (R38).
 ### Phone (400 px)
 - [ ] Filters wrap onto several lines; summary cards 2 per row; charts stack full width and stay readable;
       tables scroll inside their boxes.
+- [ ] Donut sits above its legend; funnel labels don't overlap the bars; ring stays round.
 
 ---
 
-## 7. End-to-end flows (run these before the demo)
+## Step 7 — Users & staff (`/users`, admin only)
+
+The internal team (R5) — only an admin can add staff (R7). Customers are **not** here; they sign up themselves.
+
+> Demo users are saved in the browser (localStorage), so they **survive a reload** — unlike invoices/payments.
+> To reset them: DevTools → Application → Local Storage → delete `subscriptiq.mock.users`.
+
+### Flow L: Invite a new staff member and let them in
+1. As **Admin**, open **Users & staff** (sidebar). You see yourself (with a **You** tag) and Riya Staff.
+2. Right-hand card **What each role can do** lists Admin vs Staff permissions.
+3. **Add staff member** → name *Neha Rao*, email `neha@subscriptiq.com`, role **Staff**, access **Email an invite**.
+4. Success screen → in demo mode click **Open the invite link (set password)** → set a password that passes the rules.
+5. Log out → log in as `neha@subscriptiq.com` with that password → lands on the dashboard as Staff
+   (no Taxes or Users & staff in the sidebar).
+
+### Flow M: Temporary password, then disable
+1. As Admin → **Add staff member** → access **Set a temporary password** → the password checklist appears;
+   a weak password is rejected.
+2. Use `Welcome@2026` → added. Log out and log in with it → works.
+3. Back as Admin → that user's **⋯ → Disable access** → confirm → status **Inactive**, avatar greys out,
+   **Disabled** tab count goes up.
+4. Log out → try to log in as them → "This account has been disabled. Contact your admin."
+5. As Admin → **⋯ → Enable access** → they can log in again.
+
+### Checks
+- [ ] Tabs All / Admins / Staff / Disabled show counts that match the rows.
+- [ ] Search by name or email; sort by Name, Role, Last login, Added.
+- [ ] **Last login** shows "Today" / "N days ago", or "Never" for people who haven't logged in.
+- [ ] Adding an email that already exists (try `customer@acmeretail.in`) → "An account with this email already exists."
+- [ ] Empty name / bad email → field errors.
+- [ ] Switching **Role** in the form updates the description under it.
+- [ ] Click a row (or **⋯ → Edit**) → change name and role → saved; role badge updates.
+- [ ] **Your own row**: no Disable option; in Edit, the role is locked with "You can't change your own role".
+- [ ] Make Riya an Admin, then try to demote **every** admin → "There must always be at least one active admin."
+- [ ] **⋯ → Send password reset** → toast "Password reset link sent to …".
+- [ ] As **Staff**: no **Users & staff** in the sidebar; opening `/users` redirects to the dashboard.
+- [ ] Phone: permissions card moves below the table; dialog fields stack.
+
+---
+
+## 8. End-to-end flows (run these before the demo)
 
 ### E2E 1 — "Billing day to cash" (Steps 2 + 3)
 1. Invoices → **Generate due invoices** → generate.
@@ -307,12 +363,12 @@ The finance lead's "one place" page (R37) with filters and a summary view (R38).
 3. Record a payment → back to Reports → Collected has gone up by that amount, Outstanding down.
 
 ### E2E 5 — "Permissions" (all steps)
-1. As **Staff**: Discounts read-only, no Taxes, AI approve disabled, Invoices, Payments & Reports fully usable.
+1. As **Staff**: Discounts read-only, no Taxes, no Users & staff, AI approve disabled, Invoices, Payments & Reports fully usable.
 2. As **Customer**: lands on `/portal` placeholder; opening `/invoices` redirects back to `/portal`.
 
 ---
 
-## 8. Reporting a problem
+## 9. Reporting a problem
 
 Copy this into the team chat:
 

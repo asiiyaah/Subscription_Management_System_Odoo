@@ -51,6 +51,22 @@ Response (shortened):
 - `overdue_aging`: always the four buckets in that order.
 - `payments`: newest first, max 100; `payments_total` is the full count.
 
+### Fields for the insight charts
+
+```json
+"payment_timing": [ { "bucket": "0–7 days", "count": 14, "amount": 21500 }, { "bucket": "8–15 days", "count": 6, "amount": 9300 },
+                    { "bucket": "16–30 days", "count": 3, "amount": 4100 }, { "bucket": "31+ days", "count": 1, "amount": 1179.82 } ],
+"avg_days_to_pay": 8,
+"outstanding_by_month": [ { "month": "2026-08", "outstanding": 18400.5 }, { "month": "2026-09", "outstanding": 15210 } ]
+```
+
+- `payment_timing`: payments in the range, bucketed by days from the invoice's `invoice_date` to `payment_date`;
+  always these four buckets in this order. `avg_days_to_pay` is their average (rounded), `null` with no payments.
+- `outstanding_by_month`: unpaid balance at each **month end** in the range (today for the current month) =
+  totals of confirmed/paid invoices issued by that date − payments received by that date. Drives the burn-down.
+- The burn-up running totals, collection rate %, donut shares and funnel stages are worked out in the browser from the
+  fields above (display only), so they need no extra endpoint.
+
 ## GET `/api/reports/options`
 
 `{ "plans": ["Basic Monthly", "Pro Monthly", "Business Monthly"], "customers": [{ "id": 1, "name": "Acme Retail" }] }`
