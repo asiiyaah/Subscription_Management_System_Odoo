@@ -12,9 +12,11 @@ import { Textarea } from "@/components/ui/Textarea";
 import { useToast } from "@/components/ui/Toast";
 import { formatCurrency } from "@/lib/format";
 import { planService } from "@/services/planService";
+import { quotationTemplateService } from "@/services/quotationTemplateService";
 import { subscriptionService } from "@/services/subscriptionService";
 import type { Plan } from "@/types/plan";
-import type { SubscriptionCreate, SubscriptionLineInput, SubscriptionProductDetail, SubscriptionTemplateOption, SubscriptionUpdate } from "@/types/subscription";
+import type { QuotationTemplate } from "@/types/quotationTemplate";
+import type { SubscriptionCreate, SubscriptionLineInput, SubscriptionProductDetail, SubscriptionUpdate } from "@/types/subscription";
 
 interface DraftLine { key: number; product_id: string; plan_id: string; variant_id: string; quantity: string }
 interface EditorValues { customer_id: string; lines: DraftLine[]; start_date: string; end_date: string; status: "draft" | "quotation"; discount_id: string; template_id: string; quotation_valid_until: string; notes: string }
@@ -47,7 +49,10 @@ function LineEditor({ line, index, products, onChange, onRemove, canRemove }: { 
 function addValidityDays(days: number): string {
   const date = new Date();
   date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export default function SubscriptionEditor() {
@@ -63,7 +68,7 @@ export default function SubscriptionEditor() {
   const customers = useQuery({ queryKey: ["subscription-customers"], queryFn: () => subscriptionService.customers() });
   const products = useQuery({ queryKey: ["subscription-products"], queryFn: () => subscriptionService.products() });
   const discounts = useQuery({ queryKey: ["subscription-discounts"], queryFn: () => subscriptionService.discounts() });
-  const templates = useQuery({ queryKey: ["subscription-templates"], queryFn: () => subscriptionService.templates() });
+  const templates = useQuery({ queryKey: ["quotation-templates", "subscription-picker"], queryFn: async () => (await quotationTemplateService.list({ page: 1, page_size: 100 })).items.filter((template) => template.status === "active") });
   useEffect(() => {
     if (!editing && customers.data && (searchParams.get("customer_id") || searchParams.get("template"))) {
       setValues((current) => ({ ...current, customer_id: searchParams.get("customer_id") ?? current.customer_id }));
@@ -87,8 +92,8 @@ export default function SubscriptionEditor() {
 
   function set(field: keyof EditorValues, value: string) { setValues((current) => ({ ...current, [field]: value })); }
   function changeLine(key: number, changes: Partial<DraftLine>) { setValues((current) => ({ ...current, lines: current.lines.map((line) => line.key === key ? { ...line, ...changes } : line) })); }
-  function applyTemplate(template: SubscriptionTemplateOption) {
-    setValues((current) => ({ ...current, template_id: template.id, quotation_valid_until: addValidityDays(template.validity_days), notes: current.notes || template.payment_terms || "", lines: template.lines.length ? template.lines.map((line) => ({ key: nextLineKey++, product_id: line.product_id, plan_id: line.plan_id ?? "", variant_id: "", quantity: String(line.quantity ?? 1) })) : [newLine()] }));
+  function applyTemplate(template: QuotationTemplate) {
+    setValues((current) => ({ ...current, template_id: template.id, quotation_valid_until: addValidityDays(template.validity_days), notes: template.payment_terms ?? "", lines: template.lines.length ? template.lines.map((line) => ({ key: nextLineKey++, product_id: line.product_id, plan_id: line.plan_id ?? "", variant_id: "", quantity: String(line.quantity ?? 1) })) : [newLine()] }));
   }
   const linePayload: SubscriptionLineInput[] = values.lines.filter((line) => line.product_id).map((line) => ({ product_id: line.product_id, plan_id: line.plan_id || undefined, product_attribute_value_id: line.variant_id || undefined, quantity: Number(line.quantity) }));
   const currentPayload = useMemo<SubscriptionCreate | null>(() => {
