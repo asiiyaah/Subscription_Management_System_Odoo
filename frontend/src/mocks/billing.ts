@@ -461,3 +461,26 @@ export const billingInsights = {
     return [...byCustomer.entries()].map(([customer_name, v]) => ({ customer_name, ...v })).sort((a, b) => b.balance - a.balance);
   },
 };
+
+// --- Raw data for the Reports mock (mocks/reports.ts) ------------------------------
+
+/** Snapshot of the billing data; the Reports mock aggregates it the way the backend would. */
+export function billingSnapshot() {
+  const t = today();
+  return {
+    customers: CUSTOMERS.map(({ id, name }) => ({ id, name })),
+    plans: PLANS.map((p) => p.name),
+    subscriptions: SUBSCRIPTIONS.map((sub, i) => ({
+      id: sub.id,
+      number: sub.number,
+      customer_id: sub.customerId,
+      customer_name: CUSTOMERS.find((c) => c.id === sub.customerId)!.name,
+      plan_name: sub.plan.name,
+      // Billing history above starts 3 months back, so these started 4–9 months ago.
+      start_date: iso(new Date(t.getFullYear(), t.getMonth() - 4 - (i % 6), sub.billingDay)),
+      mrr: monthlyValue(sub),
+    })),
+    invoices: INVOICES.map((inv) => structuredClone(refreshOverdue(inv))),
+    payments: allPaymentRows(),
+  };
+}

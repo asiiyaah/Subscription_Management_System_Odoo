@@ -181,6 +181,11 @@ We're using the **dark plum / magenta / pink→orange** theme (ignore any light/
   | `Paginated<T>`, `ListQuery` | `types/common` | Service return/param types |
 
 - Need a new shared component? Message me first so we don't both build it.
+- **Charts:** `recharts` is already installed (I added it for Reports) — run `npm install` after pulling.
+  Use the colours in `lib/chartTheme.ts` (`CHART.series1` pink, `CHART.series2` blue — validated for colour-blind
+  readers on our dark cards). Single-series charts use `series1` only; never put two y-axes on one chart.
+  You can reuse `MonthlyBars`, `RankedBars`, `ChartCard` and `Legend` from `components/reports/ReportCharts.tsx`
+  for the Dashboard.
 - Check every page at phone width (~400px).
 
 **Status colours** (subscriptions use these exact names, from the brief):
