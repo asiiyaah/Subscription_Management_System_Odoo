@@ -1,0 +1,30 @@
+# Backend framework
+fastapi
+uvicorn[standard]
+
+# Database: Neon PostgreSQL
+sqlalchemy
+psycopg[binary]
+alembic
+
+# Configuration and validation
+pydantic
+pydantic-settings
+python-dotenv
+email-validator
+
+# Authentication and security
+PyJWT[crypto]
+pwdlib[argon2]
+python-multipart
+
+# AI integration
+google-genai
+fastmcp
+httpx
+
+# Automation and scheduling
+apscheduler
+
+# Utilities
+requests
