@@ -1,0 +1,40 @@
+import { api, toApiError, USE_MOCKS } from "@/services/api";
+import { mockAuth } from "@/mocks/auth";
+import type {
+  ForgotPasswordRequest,
+  LoginRequest,
+  LoginResponse,
+  MessageResponse,
+  ResetPasswordRequest,
+  SignupRequest,
+  SignupResponse,
+} from "@/types/auth";
+
+// Endpoints are documented in frontend/docs/API_AUTH_CONTRACT.md.
+
+async function post<TReq, TRes>(url: string, body: TReq): Promise<TRes> {
+  try {
+    const { data } = await api.post<TRes>(url, body);
+    return data;
+  } catch (error) {
+    throw toApiError(error);
+  }
+}
+
+export const authService = {
+  login(body: LoginRequest): Promise<LoginResponse> {
+    return USE_MOCKS ? mockAuth.login(body) : post("/api/auth/login", body);
+  },
+
+  signup(body: SignupRequest): Promise<SignupResponse> {
+    return USE_MOCKS ? mockAuth.signup(body) : post("/api/auth/signup", body);
+  },
+
+  forgotPassword(body: ForgotPasswordRequest): Promise<MessageResponse> {
+    return USE_MOCKS ? mockAuth.forgotPassword(body) : post("/api/auth/forgot-password", body);
+  },
+
+  resetPassword(body: ResetPasswordRequest): Promise<MessageResponse> {
+    return USE_MOCKS ? mockAuth.resetPassword(body) : post("/api/auth/reset-password", body);
+  },
+};
