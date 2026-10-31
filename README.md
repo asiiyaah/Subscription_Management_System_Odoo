@@ -7,11 +7,11 @@
 
 ## 👥 Team Members
 
-| # | Name | Role | Responsibilities | Contact / GitHub |
-|---|------|------|------------------|------------------|
-| **1** | `[Team Member 1 Name]` | **Frontend Lead & Core Management** | Core dashboard, customer directories, product catalogs & variants, plan configuration, subscription lifecycle forms/views, customer portal subscription views, and design system charts. | `[GitHub / Email Placeholder]` |
-| **2** | `[Team Member 2 Name]` | **Full-Stack / Financial Ops, Intelligence & UI Shell** | Authentication flow, app layout shell, invoice generation & lifecycles, payment recording, tax rules, discount engines, AI chat interface, financial reporting, and customer portal billing. | `[GitHub / Email Placeholder]` |
-| **3** | `[Team Member 3 Name]` | **Backend Lead, Database Architect & AI/Automation** | FastAPI application architecture, Neon PostgreSQL schemas (28 tables), Alembic migrations, deterministic pricing/billing engines, APScheduler background jobs, and AI tool orchestrator with human approval gates. | `[GitHub / Email Placeholder]` |
+| # | Name | Role | Responsibilities | GitHub |
+|---|------|------|------------------|--------|
+| **1** | **Athira V** | **Frontend Lead & Core Management** | Core dashboard, customer directories, product catalogs & variants, plan configuration, subscription lifecycle forms/views, customer portal subscription views, and design system charts. | [@Athi183](https://github.com/Athi183) |
+| **2** | **Fathima Mehrin V S** | **Full-Stack / Financial Ops, Intelligence & UI Shell** | Authentication flow, app layout shell, invoice generation & lifecycles, payment recording, tax rules, discount engines, AI chat interface, financial reporting, and customer portal billing. | [@FathimaMehrinVS](https://github.com/FathimaMehrinVS) |
+| **3** | **Asiya Muhammed Sali** | **Backend Lead, Database Architect & AI/Automation** | FastAPI application architecture, Neon PostgreSQL schemas (28 tables), Alembic migrations, deterministic pricing/billing engines, APScheduler background jobs, and AI tool orchestrator with human approval gates. | [@asiiyaah](https://github.com/asiiyaah) |
 
 ---
 
