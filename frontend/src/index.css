@@ -18,6 +18,26 @@
   --color-danger: #ff4d6d;
   --color-warning: #ffc145;
   --color-info: #4ea8ff;
+
+  /* animate-fade-up: chat messages and AI tool steps appearing */
+  --animate-fade-up: fade-up 0.35s ease-out both;
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-bounce {
+    animation: none !important;
+  }
 }
 
 html {
