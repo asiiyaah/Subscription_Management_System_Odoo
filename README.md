@@ -9,8 +9,8 @@
 
 | # | Name | Role | Responsibilities | GitHub |
 |---|------|------|------------------|--------|
-| **1** | **Athira V** | **Frontend & Core Management** | Core dashboard, customer directories, product catalogs & variants, plan configuration, subscription lifecycle forms/views, customer portal subscription views, and design system charts. | [@Athi183](https://github.com/Athi183) |
-| **2** | **Fathima Mehrin V S** | **Full-Stack / Financial Ops, Intelligence & UI Shell** | Authentication flow, app layout shell, invoice generation & lifecycles, payment recording, tax rules, discount engines, AI chat interface, financial reporting, and customer portal billing. | [@FathimaMehrinVS](https://github.com/FathimaMehrinVS) |
+| **1** | **Athira V** | **Full-Stack / Financial Ops, Intelligence & UI Shell** | Authentication flow, app layout shell, invoice generation & lifecycles, payment recording, tax rules, discount engines, AI chat interface, financial reporting, and customer portal billing. | [@Athi183](https://github.com/Athi183) |
+| **2** | **Fathima Mehrin V S** | **Frontend & Core Management** | Core dashboard, customer directories, product catalogs & variants, plan configuration, subscription lifecycle forms/views, customer portal subscription views, and design system charts. | [@FathimaMehrinVS](https://github.com/FathimaMehrinVS) |
 | **3** | **Asiya Muhammed Sali** | **Backend, Database Architect & AI/Automation** | FastAPI application architecture, Neon PostgreSQL schemas (28 tables), Alembic migrations, deterministic pricing/billing engines, APScheduler background jobs, and AI tool orchestrator with human approval gates. | [@asiiyaah](https://github.com/asiiyaah) |
 
 ---
@@ -23,11 +23,13 @@
 - [Technology Stack](#-technology-stack)
 - [Database & Data Models](#-database--data-models)
 - [AI Copilot & Human-in-the-Loop Automation](#-ai-copilot--human-in-the-loop-automation)
-- [Backend API Endpoints (80 Paths)](#-backend-api-endpoints-80-paths)
+- [Backend API Endpoints (82 Paths)](#-backend-api-endpoints-82-paths)
 - [Project Directory Structure](#-project-directory-structure)
 - [Prerequisites & Environment Variables](#-prerequisites--environment-variables)
 - [Getting Started & Installation](#-getting-started--installation)
 - [Demo Accounts & User Personas](#-demo-accounts--user-personas)
+- [Email Setup](#️-email-setup)
+- [Project Documentation](#-project-documentation)
 - [Testing & Quality Assurance](#-testing--quality-assurance)
 - [UI & Design System](#-ui--design-system)
 - [License](#-license)
@@ -68,8 +70,9 @@ SubscriptIQ directly fulfills all 39 competition requirements (**R1–R39**) and
 ### 1. Accounts & Role-Based Access Control (R1–R7)
 - **Multi-Role RBAC:** Dedicated permissions for `admin` (full system control), `staff` (operational read/write, restricted settings), and `customer` (isolated self-service portal).
 - **Secure Password Policy:** Enforces strict password complexity (>8 characters, uppercase, lowercase, special character) hashed using **Argon2**.
-- **Admin-Only Staff Provisioning:** Only administrators can onboard staff members with custom access credentials.
-- **Privacy & Security:** Non-enumerating password reset flows, secure JWT sessions, and database-level customer scoping.
+- **Admin-Only Staff Provisioning:** Only administrators can onboard staff — by **email invitation** (48-hour, single-use link to set their own password) or with a **temporary password** that must be changed at first login (all other APIs are blocked until then).
+- **Customer Onboarding:** Customers sign up themselves; a sign-up with the same email as an existing customer record is linked to it automatically, so they immediately see their subscriptions and invoices. Staff can also invite customers to the portal. Optional **email verification** (`REQUIRE_EMAIL_VERIFICATION`).
+- **Privacy & Security:** Non-enumerating password reset flows (30-minute single-use links), secure JWT sessions that are invalidated when a password changes, and database-level customer scoping.
 
 ### 2. Products, Variants & Tiered Plans (R8–R14)
 - **Rich Catalog:** Manage recurring software products, physical goods, services, and modular add-ons with cost, sales price, and internal notes.
@@ -99,7 +102,7 @@ SubscriptIQ directly fulfills all 39 competition requirements (**R1–R39**) and
 ### 6. Payments & Accounts Receivable (R34–R36)
 - **Multi-Method Tracking:** Record payments against invoices via Cash, Bank Transfer (NEFT/RTGS/IMPS), UPI, Credit/Debit Card, or Cheque.
 - **Balance & Overpayment Protection:** Real-time balance calculations prevent overpayments; automatically marks invoices as `Partially Paid` or `Paid`.
-- **Overdue Tracking & Aging:** Instant visibility into outstanding balances and overdue invoices categorized into payment delay buckets (0-15, 16-30, 31-60, 60+ days).
+- **Overdue Tracking & Aging:** Instant visibility into outstanding balances and overdue invoices categorized into aging buckets (1–30, 31–60, 61–90, 90+ days).
 
 ### 7. Executive Dashboard & Financial Analytics (R37–R39)
 - **High-Performance Architecture:** All summary endpoints, aggregations, and list views execute in **under 2 seconds** with database indexing and server-side pagination.
@@ -127,7 +130,7 @@ flowchart TD
 
     subgraph API_Gateway["FastAPI Gateway (Uvicorn)"]
         Auth["JWT Auth & Security (Argon2)"]
-        Routers["17 Modular Routers (80 REST Endpoints)"]
+        Routers["17 Modular Routers (82 REST Paths)"]
         Pydantic["Pydantic v2 Request/Response Validation"]
     end
 
@@ -180,7 +183,7 @@ flowchart TD
 - **Data Validation:** Pydantic v2 and Pydantic-Settings
 - **Authentication:** PyJWT (HS256) and `pwdlib[argon2]` for password hashing
 - **Database Driver:** `psycopg[binary]` (PostgreSQL adapter)
-- **Database Migrations:** Alembic (environment revision: `9f4ac18e2d71`)
+- **Database Migrations:** Alembic (head revision: `d4e1a7c3b952` — account onboarding)
 
 ### AI & Automation
 - **AI Engine:** Google Gemini API (`google-genai` SDK) with Gemini 2.5 Flash
@@ -288,7 +291,7 @@ sequenceDiagram
 
 ---
 
-## 📡 Backend API Endpoints (80 Paths)
+## 📡 Backend API Endpoints (82 Paths)
 
 Interactive Swagger UI documentation is available at `http://localhost:8000/docs`.
 
@@ -297,9 +300,11 @@ Interactive Swagger UI documentation is available at `http://localhost:8000/docs
 - `POST /api/auth/login` - Authenticate with email/password; returns JWT
 - `GET /api/auth/me` - Retrieve current session and linked user profile
 - `POST /api/auth/logout` - Revoke current session token
-- `POST /api/auth/forgot-password` - Request a non-enumerating password reset
-- `POST /api/auth/reset-password` - Complete password reset using single-use token
-- `POST /api/auth/change-password` - Update password and invalidate legacy tokens
+- `POST /api/auth/forgot-password` - Request a non-enumerating password reset (30-minute link)
+- `POST /api/auth/reset-password` - Complete a password reset **or accept an invitation** (48-hour link) using a single-use token
+- `POST /api/auth/change-password` - Update password; old tokens stop working and a fresh token is returned (clears a temporary-password flag)
+- `POST /api/auth/verify-email` - Confirm a customer's email from the link sent at sign-up
+- `POST /api/auth/resend-verification` - Send a new confirmation link (non-enumerating)
 
 ### Products & Dynamic Variants (`/api/products`, `/api/product-attribute-values`)
 - `GET /api/products` - List products with type, search, and pagination filters
@@ -375,14 +380,15 @@ Interactive Swagger UI documentation is available at `http://localhost:8000/docs
 - `GET /api/portal/profile` / `PATCH /api/portal/profile` - Self-service profile updates
 - `GET /api/portal/subscriptions` - View customer's own active contracts
 - `GET /api/portal/subscriptions/{id}` - Subscription details and plan terms
-- `POST /api/portal/subscriptions/{id}/{action}` - Request subscription changes (pause/close)
+- `POST /api/portal/subscriptions/{id}/{action}` - Self-service subscription changes (pause / resume / renew / close, per plan rules)
 - `GET /api/portal/invoices` / `GET /api/portal/invoices/{id}` - View and download tax invoices
 - `GET /api/portal/payments` - Personal payment receipts history
 
 ### Administration & Settings (`/api/users`, `/api/settings`)
-- `GET /api/users` / `POST /api/users` - Admin staff provisioning and user management
+- `GET /api/users` / `POST /api/users` - Admin staff provisioning (`send_invite: true` emails a 48-hour invitation; otherwise a temporary password the user must change)
+- `GET /api/users/counts` - Team counts by role and status
 - `PATCH /api/users/{id}` - Update staff permissions and activation status
-- `POST /api/users/{id}/password-reset` - Trigger invitation or reset token for a user
+- `POST /api/users/{id}/password-reset` - Email a password reset link to a team member
 - `GET /api/settings` / `PATCH /api/settings` - Business profile (GSTIN, bank details, scheduler configs)
 - `GET /api/settings/business` - Public business details for invoice rendering
 
@@ -394,7 +400,7 @@ Interactive Swagger UI documentation is available at `http://localhost:8000/docs
 subscriptiq/
 ├── backend/
 │   ├── alembic/                      # Database migrations
-│   │   ├── versions/                 # Alembic version files (head: 9f4ac18e2d71)
+│   │   ├── versions/                 # Alembic version files (head: d4e1a7c3b952)
 │   │   └── env.py                    # Alembic migration environment
 │   ├── app/
 │   │   ├── ai/                       # AI copilot orchestration
@@ -463,18 +469,23 @@ subscriptiq/
 │   ├── alembic.ini                   # Alembic configuration file
 │   └── requirements.txt              # Python package dependencies
 ├── frontend/
-│   ├── docs/                         # Component specifications & testing guides
+│   ├── docs/                         # API contracts, integration status, testing guide, handoff
 │   ├── public/                       # Static branding & favicon assets
 │   ├── src/
 │   │   ├── components/               # Modular React UI components
-│   │   │   ├── charts/               # Recharts wrappers (Area, Donut, Bar)
-│   │   │   ├── common/               # Sidebar, Header, DataTable, StatusBadge
-│   │   │   └── ui/                   # Buttons, Modals, Inputs, Toast notifications
+│   │   │   ├── account/              # Profile & change-password forms (Settings + portal)
+│   │   │   ├── ai/                   # Chat window, tool steps, result views, approval card
+│   │   │   ├── auth/                 # Password rules checklist, resend-verification link
+│   │   │   ├── common/               # Sidebar, Header, DataTable, StatusBadge, SummaryCard
+│   │   │   ├── invoices/             # Printable invoice, invoice table, billing-run dialog
+│   │   │   ├── portal/               # How-to-pay card and portal widgets
+│   │   │   ├── reports/              # Recharts wrappers (bars, burn-up, donut, funnel, ring)
+│   │   │   └── ui/                   # Buttons, Dialogs, Inputs, Switch, Toast notifications
 │   │   ├── context/                  # AuthContext & global session state
 │   │   ├── layouts/                  # AdminLayout & PortalLayout wrappers
 │   │   ├── pages/                    # Route pages organized by domain
 │   │   │   ├── ai/                   # AI Assistant chat & approval interface
-│   │   │   ├── auth/                 # Login, Signup, Forgot/Reset Password
+│   │   │   ├── auth/                 # Login, Signup, Forgot/Reset, Accept invite, Set password, Verify email
 │   │   │   ├── customers/            # Customer directories & detail views
 │   │   │   ├── dashboard/            # Executive analytics dashboard
 │   │   │   ├── discounts/            # Promotional discount engine UI
@@ -489,7 +500,8 @@ subscriptiq/
 │   │   │   ├── taxes/                # Tax configuration UI
 │   │   │   └── users/                # Staff management UI (Admin)
 │   │   ├── routes/                   # RBAC Protected Routes & AppRoutes
-│   │   ├── services/                 # Axios API services & mock fallback layer
+│   │   ├── services/                 # Axios API services + adapters (mock or live per module)
+│   │   ├── mocks/                    # In-browser mock data used when a module isn't live
 │   │   └── types/                    # TypeScript interfaces for API contracts
 │   ├── .env.example                  # Frontend environment template
 │   ├── package.json                  # NPM packages & build scripts
@@ -507,7 +519,7 @@ subscriptiq/
 ## ⚙️ Prerequisites & Environment Variables
 
 ### Prerequisites
-- **Node.js:** v18 LTS or newer
+- **Node.js:** v20.19+ or v22.12+ (required by Vite 8; v22 LTS recommended)
 - **Python:** v3.11 or newer
 - **Database:** A Neon Serverless PostgreSQL instance (or PostgreSQL 15+)
 - **AI Credentials (Optional):** Google Gemini API key or OpenAI API key
@@ -539,13 +551,17 @@ AI_MAX_TOKENS=2048
 # Frontend Web Origin
 FRONTEND_URL=http://localhost:5173
 
-# Optional Transactional SMTP
+# Transactional email (invites, password resets, invoices, reminders) — Gmail app password example
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USERNAME=your_email@domain.com
-SMTP_PASSWORD=your_app_password
-SMTP_FROM_EMAIL=billing@subscriptiq.com
+SMTP_USERNAME=your.team.account@gmail.com          # full Gmail address
+SMTP_PASSWORD=your16charapppassword                 # Google app password, no spaces
+SMTP_FROM_EMAIL="SubscriptIQ <your.team.account@gmail.com>"  # must be the same Gmail address
 SMTP_STARTTLS=True
+
+# Account onboarding
+REQUIRE_EMAIL_VERIFICATION=false   # true = customers confirm their email before logging in (needs SMTP)
+INVITE_LINK_TTL_HOURS=48           # invite & confirmation links (password reset links: 30 minutes)
 
 # Automation Flags
 ENABLE_AUTOMATION=True
@@ -563,9 +579,15 @@ VITE_API_URL=http://localhost:8000
 # Set to false to connect directly to the FastAPI backend
 VITE_USE_MOCKS=false
 
-# Optional selective live module overrides when testing in hybrid mock mode
-VITE_LIVE_APIS=
+# Hybrid mode: keep VITE_USE_MOCKS=true and list modules that should use the real backend
+# (auth + account switch on automatically). All Member 2 modules:
+VITE_LIVE_APIS=taxes,discounts,users,settings,lookups,invoices,payments,reports,portal,ai
+
+# Demo accounts listed on the login page — emails only, passwords are never shown. "off" hides the panel.
+VITE_DEMO_ACCOUNTS=Admin:admin@subscriptiq.com,Staff:staff@subscriptiq.com,Customer:customer@acmeretail.in
 ```
+
+Restart `npm run dev` after changing `.env`. See `frontend/docs/BACKEND_INTEGRATION.md` for what each module needs.
 
 ---
 
@@ -638,13 +660,51 @@ Open your browser and navigate to `http://localhost:5173`.
 
 ## 🔑 Demo Accounts & User Personas
 
-The seed script creates pre-configured demo accounts for each role:
+`python -m scripts.seed_demo` fills the database with demo data and these logins (it never changes existing users).
+The login page lists the demo **emails** only — type the password yourself.
 
-| Persona | Email | Password | Access Level |
-|---|---|---|---|
-| **Administrator** | `admin@subscriptiq.com` | `Admin@1234` | Full access: manage catalog, plan rules, staff users, settings, tax rules, discounts, and approve AI actions. |
-| **Internal Staff** | `staff@subscriptiq.com` | `Staff@1234` | Day-to-day operations: manage customers, draft quotes, record payments, view invoices/reports; restricted from settings and user provisioning. |
-| **Customer** | `customer@acmeretail.in` | `Customer@1234` | Self-Service Portal: view own active subscriptions, inspect tax invoices, download PDF receipts, and submit change requests. |
+| Persona | Email | Password (database seed) | Password (frontend mock mode) | Access Level |
+|---|---|---|---|---|
+| **Administrator** | `admin@subscriptiq.com`* | `Admin@12345`* | `Admin@1234` | Full access: catalog, plans, staff, settings, taxes, discounts, approving AI actions. |
+| **Internal Staff** | `staff@subscriptiq.com` | `Staff@12345` | `Staff@1234` | Day-to-day operations: customers, subscriptions, invoices, payments, reports; no settings or user management. |
+| **Customer** | `customer@acmeretail.in` | `Customer@12345` | `Customer@1234` | Self-service portal for Acme Retail: own subscriptions, invoices, payments and profile. |
+
+\* The seed creates this admin only if the database has no admin yet; otherwise use your existing admin.
+Demo passwords are public — change them (Settings → Password) before any real use.
+
+### How people get accounts (real use)
+
+| Who | How |
+|---|---|
+| **Admin** | Created once at setup (seed script or a one-off command). There is no admin sign-up. |
+| **Staff** | Admin → **Users & staff → Add staff member** → *Email an invite* (48-hour link to set a password) or *Temporary password* (must be changed at first login). |
+| **Customers** | Sign up at `/signup` (linked to an existing customer record with the same email), or are invited to the portal by staff. |
+
+---
+
+## ✉️ Email Setup
+
+Invitations, password resets, invoice emails and reminders need SMTP in `backend/.env` (without it the app still
+works, and tells the user the email couldn't be sent).
+
+- **Gmail (simplest):** turn on 2-Step Verification for the sending account, create an app password at
+  https://myaccount.google.com/apppasswords, and set the `SMTP_*` values shown above (username = full Gmail address).
+- **Development without real emails:** a Mailtrap test inbox (`SMTP_HOST=sandbox.smtp.mailtrap.io`).
+- Restart uvicorn after editing `.env`. Email links open `FRONTEND_URL`, so set it to wherever the frontend runs.
+- Never commit `.env` — it holds the app password, database URL and secret key.
+
+---
+
+## 📚 Project Documentation
+
+| Document | What's in it |
+|---|---|
+| `frontend/docs/PROBLEM_STATEMENT.md` | The brief and the R1–R39 requirement checklist |
+| `frontend/docs/FRONTEND_PAGES.md` | Every page: routes, roles, fields and APIs |
+| `frontend/docs/BACKEND_INTEGRATION.md` | Mock vs live mode, which modules are live, remaining limitations |
+| `frontend/docs/API_*_CONTRACT.md` | Request/response contracts per module (auth, invoices, pricing, reports, users, settings/portal, AI) |
+| `frontend/docs/TESTING_GUIDE.md` | Manual test flows and checklists for every module, plus end-to-end demo flows |
+| `frontend/docs/MEMBER1_HANDOFF.md` | Frontend conventions, shared components and ownership |
 
 ---
 
@@ -711,4 +771,4 @@ The frontend is styled using a modern dark aesthetic inspired by enterprise anal
 ## 📄 License
 
 This project is submitted for the **Odoo Hackathon: Subscription Management System**.  
-All rights reserved © 2026 SubscriptIQ Team. Available under the MIT License.
+© 2026 SubscriptIQ Team. All rights reserved.
