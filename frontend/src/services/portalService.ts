@@ -125,7 +125,7 @@ export const portalService = {
     const pages = await Promise.all(statuses.map((status) => request<Paginated<InvoiceSummaryRow>>(() =>
       api.get("/api/invoices", { params: { subscription_id: id, status, page: 1, page_size: 100 } }),
     )));
-    return pages.flatMap((page) => page.items);
+    return pages.flatMap((page) => page.items.map(normalizeInvoice)).sort((a, b) => b.invoice_date.localeCompare(a.invoice_date));
   },
 
   /** Extra filter: `unpaid=true`. Drafts are never returned. */
