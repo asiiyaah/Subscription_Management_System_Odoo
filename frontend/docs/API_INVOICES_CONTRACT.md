@@ -78,6 +78,33 @@ List row fields plus:
 Creates **draft** invoices for `ready` rows. Must be idempotent: running it twice creates nothing the second time
 (unique constraint on `subscription_id + period_start`).
 
+## GET `/api/payments`
+
+Query params: `page`, `page_size`, `search` (payment number / customer / invoice number / note), `sort_by`, `sort_dir`,
+`method`, `date_from`, `date_to` (inclusive, `YYYY-MM-DD`), `customer_id`, `invoice_id`.
+
+```json
+{
+  "items": [{
+    "id": 42, "number": "PAY-0042", "payment_date": "2026-10-20", "amount": 1000, "method": "upi", "note": "UTR 4100037",
+    "invoice_id": 12, "invoice_number": "INV-2026-0012", "customer_id": 3, "customer_name": "Pixel Studio"
+  }],
+  "total": 31, "page": 1, "page_size": 10
+}
+```
+
+## GET `/api/payments/summary`
+
+```json
+{
+  "collected_this_month": 18450.5, "payments_this_month": 9, "top_method": "upi", "outstanding": 27034.5,
+  "by_method": [{ "method": "upi", "amount": 9200, "count": 4 }, { "method": "bank_transfer", "amount": 6250.5, "count": 3 }]
+}
+```
+`outstanding` = sum of `balance` over confirmed invoices. `by_method` is sorted by amount, highest first; `top_method` is `null` with no payments this month.
+
+Invoice `payments[]` items also carry `"number": "PAY-0042"`.
+
 ## POST `/api/payments`
 
 ```json

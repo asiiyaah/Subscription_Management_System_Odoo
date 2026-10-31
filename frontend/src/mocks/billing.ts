@@ -15,6 +15,7 @@ import type {
   PaymentMethod,
   RecordPaymentRequest,
 } from "@/types/invoice";
+import type { PaymentListQuery, PaymentRow, PaymentStats } from "@/types/payment";
 
 const DAY = 86_400_000;
 const GST_RATE = 0.18;
@@ -132,7 +133,15 @@ function buildInvoice(sub: MockSubscription, start: Date, status: Invoice["statu
 }
 
 function addPayment(invoice: Invoice, amount: number, date: string, method: PaymentMethod, note?: string) {
-  const payment: InvoicePayment = { id: nextPaymentId++, payment_date: date, method, amount: round(amount), note };
+  const id = nextPaymentId++;
+  const payment: InvoicePayment = {
+    id,
+    number: `PAY-${String(id).padStart(4, "0")}`,
+    payment_date: date,
+    method,
+    amount: round(amount),
+    note,
+  };
   invoice.payments.push(payment);
   invoice.amount_paid = round(invoice.amount_paid + amount);
   invoice.balance = round(invoice.total - invoice.amount_paid);
@@ -170,6 +179,15 @@ function seed(): Invoice[] {
   invoices.forEach((inv, index) => {
     inv.number = `INV-${inv.invoice_date.slice(0, 4)}-${String(index + 1).padStart(4, "0")}`;
   });
+
+  // Number seeded payments in date order so PAY-0001 is the oldest.
+  invoices
+    .flatMap((inv) => inv.payments)
+    .sort((a, b) => a.payment_date.localeCompare(b.payment_date) || a.id - b.id)
+    .forEach((payment, index) => {
+      payment.id = index + 1;
+      payment.number = `PAY-${String(index + 1).padStart(4, "0")}`;
+    });
   return invoices;
 }
 
@@ -313,4 +331,50 @@ export const mockPayments = {
     addPayment(invoice, request.amount, request.payment_date, request.method, request.note);
     return structuredClone(refreshOverdue(invoice));
   },
+
+  async list(query: PaymentListQuery): Promise<Paginated<PaymentRow>> {
+    await mockDelay();
+    const { date_from, date_to, customer_id, invoice_id, ...rest } = query;
+    let rows = allPaymentRows();
+    if (date_from) rows = rows.filter((r) => r.payment_date >= date_from);
+    if (date_to) rows = rows.filter((r) => r.payment_date <= date_to);
+    if (customer_id) rows = rows.filter((r) => r.customer_id === Number(customer_id));
+    if (invoice_id) rows = rows.filter((r) => r.invoice_id === Number(invoice_id));
+    return paginate(rows, rest, ["number", "customer_name", "invoice_number", "note"]);
+  },
+
+  async stats(): Promise<PaymentStats> {
+    await mockDelay(300);
+    const monthPrefix = iso(today()).slice(0, 7);
+    const thisMonth = allPaymentRows().filter((r) => r.payment_date.startsWith(monthPrefix));
+
+    const byMethod = new Map<PaymentMethod, { amount: number; count: number }>();
+    for (const row of thisMonth) {
+      const entry = byMethod.get(row.method) ?? { amount: 0, count: 0 };
+      byMethod.set(row.method, { amount: round(entry.amount + row.amount), count: entry.count + 1 });
+    }
+    const by_method = [...byMethod.entries()]
+      .map(([method, v]) => ({ method, ...v }))
+      .sort((a, b) => b.amount - a.amount);
+
+    return {
+      collected_this_month: round(thisMonth.reduce((s, r) => s + r.amount, 0)),
+      payments_this_month: thisMonth.length,
+      top_method: by_method[0]?.method ?? null,
+      outstanding: round(INVOICES.filter((inv) => inv.status === "confirmed").reduce((s, inv) => s + inv.balance, 0)),
+      by_method,
+    };
+  },
 };
+
+function allPaymentRows(): PaymentRow[] {
+  return INVOICES.flatMap((inv) =>
+    inv.payments.map((p) => ({
+      ...p,
+      invoice_id: inv.id,
+      invoice_number: inv.number,
+      customer_id: inv.customer_id,
+      customer_name: inv.customer_name,
+    })),
+  );
+}
