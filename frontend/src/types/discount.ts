@@ -1,4 +1,4 @@
-import type { ListQuery } from "@/types/common";
+import type { Id, ListQuery } from "@/types/common";
 
 export type DiscountType = "percentage" | "fixed";
 
@@ -6,7 +6,7 @@ export type DiscountType = "percentage" | "fixed";
 export type DiscountStatus = "active" | "scheduled" | "expired" | "used_up" | "inactive";
 
 export interface Discount {
-  id: number;
+  id: Id;
   /** Customer-facing code, uppercase, e.g. "SEATS10". Unique. */
   code: string;
   name: string;
@@ -26,7 +26,7 @@ export interface Discount {
   used_count: number;
   /** R32: whole subscription, or only lines with these products. */
   applies_to: "subscription" | "products";
-  product_ids: number[];
+  product_ids: Id[];
   /** Product names for display (backend joins them). */
   product_names: string[];
   /** Admin on/off switch. Off = "inactive" regardless of dates. */
@@ -48,9 +48,10 @@ export interface DiscountValidationRequest {
   code: string;
   subtotal: number;
   quantity: number;
-  product_ids: number[];
+  /** Mock only — the backend doesn't check product targeting here. */
+  product_ids?: Id[];
 }
 
 export type DiscountValidationResult =
-  | { valid: true; discount: Pick<Discount, "id" | "code" | "name" | "type" | "value" | "applies_to" | "product_ids"> }
+  | { valid: true; discount_id: Id; code: string; /** Calculated by the backend for this subtotal. */ discount_amount: number }
   | { valid: false; reason: string };

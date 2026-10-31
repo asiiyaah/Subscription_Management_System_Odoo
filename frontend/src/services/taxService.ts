@@ -1,8 +1,10 @@
-import { api, toApiError, USE_MOCKS } from "@/services/api";
+import { api, isLive, num, toApiError } from "@/services/api";
 import { mockTaxes } from "@/mocks/pricing";
+import type { Id } from "@/types/common";
 import type { TaxInput, TaxRule } from "@/types/tax";
 
-// Endpoints are documented in frontend/docs/API_PRICING_CONTRACT.md.
+// Endpoints: frontend/docs/API_PRICING_CONTRACT.md (mock) — live mapping below follows backend/app/routers/taxes.py.
+const LIVE = isLive("taxes");
 
 async function request<T>(call: () => Promise<{ data: T }>): Promise<T> {
   try {
@@ -12,29 +14,77 @@ async function request<T>(call: () => Promise<{ data: T }>): Promise<T> {
   }
 }
 
+/** Backend tax row → UI tax rule. The backend has no per-rule product targeting (it's set per product). */
+interface ApiTax {
+  id: string;
+  name: string;
+  tax_type: "percentage" | "fixed";
+  rate: string;
+  is_active: boolean | null;
+  is_default: boolean;
+}
+
+function fromApi(t: ApiTax): TaxRule {
+  return {
+    id: t.id,
+    name: t.name,
+    type: t.tax_type,
+    rate: num(t.rate),
+    applies_to: "all",
+    product_ids: [],
+    product_names: [],
+    is_default: t.is_default,
+    active: t.is_active !== false,
+  };
+}
+
+const toApi = (input: TaxInput) => ({
+  name: input.name,
+  tax_type: input.type,
+  rate: input.rate,
+  is_active: input.is_default ? true : input.active,
+  is_default: input.is_default,
+});
+
 export const taxService = {
+  /** What the connected API supports — the UI hides what isn't there. */
+  capabilities: {
+    /** Pick specific products on the rule itself (live: set per product instead). */
+    productTargeting: !LIVE,
+    /** Real delete (live: DELETE only deactivates). */
+    hardDelete: !LIVE,
+  },
+
   /** Tax rules are few, so the list isn't paginated. Default first. */
-  list(): Promise<TaxRule[]> {
-    return USE_MOCKS ? mockTaxes.list() : request(() => api.get("/api/taxes"));
+  async list(): Promise<TaxRule[]> {
+    if (!LIVE) return mockTaxes.list();
+    const page = await request<{ items: ApiTax[] }>(() => api.get("/api/taxes", { params: { page_size: 200 } }));
+    return page.items.map(fromApi).sort((a, b) => Number(b.is_default) - Number(a.is_default) || a.name.localeCompare(b.name));
   },
 
-  create(input: TaxInput): Promise<TaxRule> {
-    return USE_MOCKS ? mockTaxes.create(input) : request(() => api.post("/api/taxes", input));
+  async create(input: TaxInput): Promise<TaxRule> {
+    if (!LIVE) return mockTaxes.create(input);
+    return fromApi(await request<ApiTax>(() => api.post("/api/taxes", toApi(input))));
   },
 
-  update(id: number, input: TaxInput): Promise<TaxRule> {
-    return USE_MOCKS ? mockTaxes.update(id, input) : request(() => api.put(`/api/taxes/${id}`, input));
+  async update(id: Id, input: TaxInput): Promise<TaxRule> {
+    if (!LIVE) return mockTaxes.update(id, input);
+    return fromApi(await request<ApiTax>(() => api.patch(`/api/taxes/${id}`, toApi(input))));
   },
 
-  setDefault(id: number): Promise<TaxRule> {
-    return USE_MOCKS ? mockTaxes.setDefault(id) : request(() => api.post(`/api/taxes/${id}/default`));
+  async setDefault(id: Id): Promise<TaxRule> {
+    if (!LIVE) return mockTaxes.setDefault(id);
+    return fromApi(await request<ApiTax>(() => api.patch(`/api/taxes/${id}`, { is_default: true, is_active: true })));
   },
 
-  setActive(id: number, active: boolean): Promise<TaxRule> {
-    return USE_MOCKS ? mockTaxes.setActive(id, active) : request(() => api.patch(`/api/taxes/${id}`, { active }));
+  async setActive(id: Id, active: boolean): Promise<TaxRule> {
+    if (!LIVE) return mockTaxes.setActive(id, active);
+    return fromApi(await request<ApiTax>(() => api.patch(`/api/taxes/${id}`, { is_active: active })));
   },
 
-  remove(id: number): Promise<void> {
-    return USE_MOCKS ? mockTaxes.remove(id) : request(() => api.delete(`/api/taxes/${id}`));
+  /** Mock: deletes. Live: the backend deactivates instead (history is kept). */
+  async remove(id: Id): Promise<void> {
+    if (!LIVE) return mockTaxes.remove(id);
+    await request(() => api.delete(`/api/taxes/${id}`));
   },
 };

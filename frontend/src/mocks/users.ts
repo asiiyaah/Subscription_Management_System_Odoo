@@ -5,7 +5,7 @@ import { loadUsers, mockAuth, saveUsers, type MockUser } from "@/mocks/auth";
 import { mockDelay, paginate } from "@/mocks/utils";
 import { tokenStorage } from "@/lib/tokenStorage";
 import { isPasswordValid } from "@/lib/password";
-import type { Paginated } from "@/types/common";
+import type { Id, Paginated } from "@/types/common";
 import type {
   CreateTeamMemberResult,
   NewTeamMember,
@@ -15,7 +15,7 @@ import type {
   UpdateTeamMember,
 } from "@/types/user";
 
-const SEED_DATES: Record<number, { created_at: string; last_login: string | null }> = {
+const SEED_DATES: Record<string, { created_at: string; last_login: string | null }> = {
   1: { created_at: "2026-01-04T09:00:00Z", last_login: null },
   2: { created_at: "2026-02-11T09:00:00Z", last_login: "2026-10-30T06:12:00Z" },
 };
@@ -36,7 +36,7 @@ const team = () => loadUsers().filter((u) => u.role === "admin" || u.role === "s
 /** The backend reads this from the JWT. */
 const currentUserId = () => tokenStorage.getUser()?.id;
 
-function find(id: number): MockUser {
+function find(id: Id): MockUser {
   const user = team().find((u) => u.id === id);
   if (!user) throw new ApiError(404, "User not found.");
   return user;
@@ -46,7 +46,7 @@ function activeAdmins(users: MockUser[]) {
   return users.filter((u) => u.role === "admin" && u.active !== false);
 }
 
-function patch(id: number, changes: Partial<MockUser>): TeamMember {
+function patch(id: Id, changes: Partial<MockUser>): TeamMember {
   const users = loadUsers().map((u) => (u.id === id ? { ...u, ...changes } : u));
   saveUsers(users);
   return toMember(users.find((u) => u.id === id)!);
@@ -82,7 +82,7 @@ export const mockUsers = {
       throw new ApiError(422, "The temporary password doesn't meet the password rules.");
     }
     const user: MockUser = {
-      id: Math.max(...users.map((u) => u.id)) + 1,
+      id: Math.max(...users.map((u) => Number(u.id) || 0)) + 1, // mock ids are numbers
       name: input.name.trim(),
       email,
       role: input.role,
@@ -101,7 +101,7 @@ export const mockUsers = {
     return { user: toMember(user), message: `${user.name} can now log in with the temporary password` };
   },
 
-  async update(id: number, input: UpdateTeamMember): Promise<TeamMember> {
+  async update(id: Id, input: UpdateTeamMember): Promise<TeamMember> {
     await mockDelay();
     const user = find(id);
     if (id === currentUserId() && input.role !== user.role) {
@@ -113,7 +113,7 @@ export const mockUsers = {
     return patch(id, { name: input.name.trim(), role: input.role });
   },
 
-  async setActive(id: number, active: boolean): Promise<TeamMember> {
+  async setActive(id: Id, active: boolean): Promise<TeamMember> {
     await mockDelay(400);
     const user = find(id);
     if (!active && id === currentUserId()) throw new ApiError(422, "You can't disable your own account.");
@@ -123,7 +123,7 @@ export const mockUsers = {
     return patch(id, { active });
   },
 
-  async sendPasswordReset(id: number): Promise<{ message: string; dev_reset_link?: string }> {
+  async sendPasswordReset(id: Id): Promise<{ message: string; dev_reset_link?: string }> {
     const user = find(id);
     const { dev_reset_link } = await mockAuth.forgotPassword({ email: user.email });
     return { message: `Password reset link sent to ${user.email}`, dev_reset_link };

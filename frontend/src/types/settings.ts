@@ -1,3 +1,4 @@
+import type { Id } from "@/types/common";
 /** Seller details used on invoices and emails (Settings → Business, admin only). */
 export interface BusinessSettings {
   company_name: string;
@@ -30,7 +31,7 @@ export interface AutomationSettings {
 
 /** The signed-in user's own details (any role). */
 export interface Profile {
-  id: number;
+  id: Id;
   name: string;
   email: string;
   phone?: string;

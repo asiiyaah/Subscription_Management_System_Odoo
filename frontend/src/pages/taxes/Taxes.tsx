@@ -71,7 +71,8 @@ export default function Taxes() {
         (tax.active
           ? { label: "Deactivate", icon: <Pause />, onSelect: () => activeMutation.mutate({ tax, active: false }) }
           : { label: "Activate", icon: <Play />, onSelect: () => activeMutation.mutate({ tax, active: true }) }),
-      !tax.is_default && { label: "Delete", icon: <Trash2 />, tone: "danger", onSelect: () => setDeleting(tax) },
+      // Live backend only deactivates, which "Deactivate" already covers.
+      !tax.is_default && taxService.capabilities.hardDelete && { label: "Delete", icon: <Trash2 />, tone: "danger", onSelect: () => setDeleting(tax) },
     ];
     return items.filter((item): item is MenuAction => item !== false);
   }

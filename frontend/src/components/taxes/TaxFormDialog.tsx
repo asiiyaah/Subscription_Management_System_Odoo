@@ -12,6 +12,7 @@ import { lookupService } from "@/services/lookupService";
 import { taxService } from "@/services/taxService";
 import type { ApiError } from "@/services/api";
 import type { TaxInput, TaxRule, TaxType } from "@/types/tax";
+import type { Id } from "@/types/common";
 
 const FORM_ID = "tax-form";
 
@@ -57,7 +58,7 @@ function TaxForm({ tax, onDone }: { tax: TaxRule | null; onDone: () => void }) {
   const [type, setType] = useState<TaxType>(tax?.type ?? "percentage");
   const [rate, setRate] = useState(tax ? String(tax.rate) : "");
   const [appliesTo, setAppliesTo] = useState<TaxInput["applies_to"]>(tax?.applies_to ?? "all");
-  const [productIds, setProductIds] = useState<number[]>(tax?.product_ids ?? []);
+  const [productIds, setProductIds] = useState<Id[]>(tax?.product_ids ?? []);
   const [isDefault, setIsDefault] = useState(tax?.is_default ?? false);
   const [active, setActive] = useState(tax?.active ?? true);
   const [errors, setErrors] = useState<Errors>({});
@@ -135,15 +136,19 @@ function TaxForm({ tax, onDone }: { tax: TaxRule | null; onDone: () => void }) {
         />
       </div>
 
-      <SegmentedControl
-        label="Applies to"
-        value={appliesTo}
-        onChange={setAppliesTo}
-        options={[
-          { value: "all", label: "All products" },
-          { value: "products", label: "Specific products" },
-        ]}
-      />
+      {taxService.capabilities.productTargeting ? (
+        <SegmentedControl
+          label="Applies to"
+          value={appliesTo}
+          onChange={setAppliesTo}
+          options={[
+            { value: "all", label: "All products" },
+            { value: "products", label: "Specific products" },
+          ]}
+        />
+      ) : (
+        <p className="text-xs text-muted">Applies to all products. Product-specific taxes are set on each product.</p>
+      )}
       {appliesTo === "products" && (
         <CheckboxList
           label="Products"

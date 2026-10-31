@@ -400,6 +400,38 @@ What a customer sees (R6): only **their own** subscriptions and invoices. Log in
 
 ---
 
+## Live backend — Member 2 modules (`VITE_LIVE_APIS`)
+
+Run these with the backend running and `frontend/.env` set as in [BACKEND_INTEGRATION.md](./BACKEND_INTEGRATION.md)
+(`VITE_LIVE_APIS=taxes,discounts,users,settings,lookups`, restart `npm run dev`). Use a **database** account.
+
+### Flow Q: Real login and account
+1. Sign up a new account → "Account created" → log in with it → lands on `/portal` (customer).
+2. Log in as a database **admin** → dashboard. Wrong password → "Incorrect email or password."
+3. Forgot password with a registered email → generic message (an email is sent only if the backend has SMTP set up).
+4. Settings → Profile → change your name → saved; refresh the page → name is still changed (it's in the database).
+5. Settings → Password → change it → toast "Please log in with your new password" and you're returned to login →
+   the **old** password fails, the new one works.
+
+### Checks
+- [ ] **Taxes:** create, edit, Make default (the old default loses its badge), deactivate/activate. No "Specific
+      products" option and no Delete (both expected in live mode). Refresh → changes persist.
+- [ ] **Discounts:** create with dates, minimums and a usage limit → appears with the right status tab. Pick
+      "Specific products" → the list shows **real** active products. Duplicate code → error under Code.
+      Deactivate/activate works; no Delete (expected). Refresh → changes persist.
+- [ ] **Users & staff:** list shows only admin and staff (no customers). Add staff → only "Temporary password" is
+      offered → log in as them in another browser. Disable → their login fails. Try disabling yourself or demoting the
+      last admin → server error message shows. No Last login / Added columns (expected).
+- [ ] **Settings → Business:** edit name, address, prefixes, payment terms → save → refresh → kept.
+      GSTIN and Bank & UPI are greyed out with an info note (expected).
+- [ ] **Settings → Automation:** Renewal reminder shows Off / On only; no Run at time or Overdue reminder (expected).
+- [ ] As **staff**: Taxes and Users hidden; Discounts read-only; Settings shows Profile + Password only.
+- [ ] Invoices, Payments, Reports, AI and portal invoices still show **mock** data (they go live after the backend
+      changes listed in BACKEND_INTEGRATION.md §3).
+- [ ] Stop the backend while logged in → pages show "Can't reach the server…" with Try again, not a blank screen.
+
+---
+
 ## 10. End-to-end flows (run these before the demo)
 
 ### E2E 1 — "Billing day to cash" (Steps 2 + 3)

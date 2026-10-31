@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/context/AuthContext";
 import { BUSINESS } from "@/lib/business";
 import { settingsService } from "@/services/settingsService";
 import type { BusinessSettings } from "@/types/settings";
@@ -19,10 +20,13 @@ const FALLBACK: BusinessSettings = {
 
 /** Seller details from Settings → Business (cached for 5 minutes). */
 export function useBusinessSettings(): BusinessSettings {
+  const { user } = useAuth();
+  const canRead = user?.role !== "customer" || settingsService.capabilities.customersCanRead;
   const { data } = useQuery({
     queryKey: ["settings", "business"],
     queryFn: () => settingsService.getBusiness(),
     staleTime: 5 * 60_000,
+    enabled: canRead,
   });
   return data ?? FALLBACK;
 }

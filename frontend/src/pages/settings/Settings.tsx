@@ -117,7 +117,7 @@ function BusinessForm({ initial }: { initial: BusinessSettings }) {
     const e: BusinessErrors = {};
     if (!form.company_name.trim()) e.company_name = "Enter the legal company name.";
     if (!EMAIL_PATTERN.test(form.email.trim())) e.email = "Enter a valid email.";
-    if (!GSTIN_PATTERN.test(form.gstin)) e.gstin = "15 characters, e.g. 29AAKCS1234F1Z5.";
+    if (settingsService.capabilities.gstinAndBank && !GSTIN_PATTERN.test(form.gstin)) e.gstin = "15 characters, e.g. 29AAKCS1234F1Z5.";
     if (!form.address.trim()) e.address = "Enter the registered address.";
     if (!PREFIX_PATTERN.test(form.invoice_prefix)) e.invoice_prefix = "1–8 capital letters, numbers or -.";
     if (!PREFIX_PATTERN.test(form.subscription_prefix)) e.subscription_prefix = "1–8 capital letters, numbers or -.";
@@ -142,6 +142,7 @@ function BusinessForm({ initial }: { initial: BusinessSettings }) {
             value={form.gstin}
             onChange={(e) => set("gstin", e.target.value.toUpperCase().replace(/\s/g, ""))}
             error={errors.gstin}
+            disabled={!settingsService.capabilities.gstinAndBank}
             className="[&_input]:font-mono [&_input]:tracking-wider"
           />
           <TextField label="Billing email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} error={errors.email} />
@@ -181,12 +182,17 @@ function BusinessForm({ initial }: { initial: BusinessSettings }) {
       </Panel>
 
       <Panel title="Bank & UPI" description="Shown under “Payment information” on invoices so customers know how to pay.">
-        <div className="grid gap-4 sm:grid-cols-2">
+        {!settingsService.capabilities.gstinAndBank && (
+          <div className="mb-4">
+            <Alert tone="info">GSTIN and bank details can't be saved to the server yet — invoices use the defaults shown here.</Alert>
+          </div>
+        )}
+        <fieldset disabled={!settingsService.capabilities.gstinAndBank} className="grid gap-4 disabled:opacity-60 sm:grid-cols-2">
           <TextField label="UPI ID" placeholder="company@bank" value={form.bank.upi} onChange={(e) => setBank("upi", e.target.value)} />
           <TextField label="Bank and branch" value={form.bank.name} onChange={(e) => setBank("name", e.target.value)} />
           <TextField label="Account number" inputMode="numeric" value={form.bank.account} onChange={(e) => setBank("account", e.target.value.replace(/\s/g, ""))} />
           <TextField label="IFSC" value={form.bank.ifsc} onChange={(e) => setBank("ifsc", e.target.value.toUpperCase())} error={errors.ifsc} />
-        </div>
+        </fieldset>
       </Panel>
 
       <SaveBar dirty={dirty} saving={mutation.isPending} onReset={() => { setForm(initial); setErrors({}); }} />
@@ -204,6 +210,11 @@ function AutomationTab() {
 }
 
 const REMINDER_BEFORE = [0, 3, 7, 14, 30].map((d) => ({ value: String(d), label: d === 0 ? "Off" : `${d} days before` }));
+/** Live backend: reminders are simply on (sent 7 days before) or off. */
+const REMINDER_ON_OFF = [
+  { value: "0", label: "Off" },
+  { value: "7", label: "On" },
+];
 const REMINDER_AFTER = [0, 1, 3, 7, 14].map((d) => ({ value: String(d), label: d === 0 ? "Off" : `${d} day${d > 1 ? "s" : ""} after` }));
 
 function AutomationForm({ initial }: { initial: AutomationSettings }) {
@@ -240,7 +251,7 @@ function AutomationForm({ initial }: { initial: AutomationSettings }) {
             checked={form.auto_generate_invoices}
             onChange={(v) => set("auto_generate_invoices", v)}
           />
-          {form.auto_generate_invoices && (
+          {form.auto_generate_invoices && settingsService.capabilities.invoiceRunTime && (
             <TextField label="Run at" type="time" className="max-w-40" value={form.invoice_run_time} onChange={(e) => set("invoice_run_time", e.target.value)} />
           )}
         </div>
@@ -250,16 +261,18 @@ function AutomationForm({ initial }: { initial: AutomationSettings }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <Select
             label="Renewal reminder"
-            options={REMINDER_BEFORE}
+            options={settingsService.capabilities.reminderDays ? REMINDER_BEFORE : REMINDER_ON_OFF}
             value={String(form.renewal_reminder_days)}
             onChange={(e) => set("renewal_reminder_days", Number(e.target.value))}
           />
-          <Select
-            label="Overdue reminder"
-            options={REMINDER_AFTER}
-            value={String(form.overdue_reminder_days)}
-            onChange={(e) => set("overdue_reminder_days", Number(e.target.value))}
-          />
+          {settingsService.capabilities.overdueReminders && (
+            <Select
+              label="Overdue reminder"
+              options={REMINDER_AFTER}
+              value={String(form.overdue_reminder_days)}
+              onChange={(e) => set("overdue_reminder_days", Number(e.target.value))}
+            />
+          )}
         </div>
         <p className="mt-3 text-xs text-muted">
           {form.renewal_reminder_days ? `Customers hear about renewals ${form.renewal_reminder_days} days before the end date. ` : "No renewal reminders. "}

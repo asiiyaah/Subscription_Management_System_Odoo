@@ -1,7 +1,37 @@
 import axios, { AxiosError } from "axios";
 import { tokenStorage } from "@/lib/tokenStorage";
 
+/** Global switch (all modules, both members). Member 1's services read this directly. */
 export const USE_MOCKS = import.meta.env.VITE_USE_MOCKS !== "false";
+
+/**
+ * Member 2's modules can go live one at a time while everything else stays on mocks:
+ *   VITE_LIVE_APIS=auth,taxes,discounts,users,settings
+ * Any live module needs a real login token, so listing anything also makes `auth` and `account` live.
+ */
+const LIVE_APIS = new Set(
+  (import.meta.env.VITE_LIVE_APIS ?? "")
+    .split(",")
+    .map((name: string) => name.trim())
+    .filter(Boolean),
+);
+if (LIVE_APIS.size > 0) {
+  LIVE_APIS.add("auth");
+  LIVE_APIS.add("account");
+}
+
+export type LiveModule = "auth" | "account" | "taxes" | "discounts" | "users" | "settings" | "lookups";
+
+/** True when this module should call the real backend instead of its mock. */
+export function isLive(module: LiveModule): boolean {
+  return !USE_MOCKS || LIVE_APIS.has(module);
+}
+
+/** The backend sends money and quantities as decimal strings ("1179.82"); convert for display. */
+export function num(value: string | number | null | undefined): number {
+  const n = typeof value === "number" ? value : Number(value ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? "http://localhost:8000",
@@ -49,7 +79,7 @@ export function toApiError(error: unknown): ApiError {
       typeof detail === "string"
         ? detail
         : Array.isArray(detail) && detail[0]?.msg
-          ? String(detail[0].msg)
+          ? String(detail[0].msg).replace(/^Value error, /, "")
           : "Something went wrong. Please try again.";
     return new ApiError(error.response.status, message);
   }

@@ -1,15 +1,16 @@
-import type { ListQuery } from "@/types/common";
+import type { Id, ListQuery } from "@/types/common";
 
 /** Internal team member (R5). Customers are managed in the Customers module, not here. */
 export type TeamRole = "admin" | "staff";
 
 export interface TeamMember {
-  id: number;
+  id: Id;
   name: string;
   email: string;
   role: TeamRole;
   active: boolean;
   last_login: string | null;
+  /** Empty when the backend doesn't send it. */
   created_at: string;
 }
 

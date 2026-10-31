@@ -1,8 +1,9 @@
+import type { Id } from "@/types/common";
 export type TaxType = "percentage" | "fixed";
 
 /** Admin-defined tax rule; the backend applies it to subscription and invoice lines (R23). */
 export interface TaxRule {
-  id: number;
+  id: Id;
   /** Shown on invoice lines, e.g. "GST 18%". */
   name: string;
   type: TaxType;
@@ -10,7 +11,7 @@ export interface TaxRule {
   rate: number;
   /** All products, or only these products. */
   applies_to: "all" | "products";
-  product_ids: number[];
+  product_ids: Id[];
   product_names: string[];
   /** The default rule is used for products that no other rule covers. Exactly one default. */
   is_default: boolean;

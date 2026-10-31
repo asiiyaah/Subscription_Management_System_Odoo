@@ -87,7 +87,9 @@ function AddStaffForm({ onCreated }: { onCreated: (result: CreateTeamMemberResul
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<TeamRole>("staff");
-  const [access, setAccess] = useState<"invite" | "password">("invite");
+  // Live backend can't send invites yet, so a temporary password is the only option there.
+  const canInvite = userService.capabilities.invite;
+  const [access, setAccess] = useState<"invite" | "password">(canInvite ? "invite" : "password");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<Errors>({});
 
@@ -156,15 +158,19 @@ function AddStaffForm({ onCreated }: { onCreated: (result: CreateTeamMemberResul
       </div>
 
       <div className="space-y-3">
-        <SegmentedControl
-          label="How they get access"
-          value={access}
-          onChange={setAccess}
-          options={[
-            { value: "invite", label: "Email an invite" },
-            { value: "password", label: "Set a temporary password" },
-          ]}
-        />
+        {canInvite ? (
+          <SegmentedControl
+            label="How they get access"
+            value={access}
+            onChange={setAccess}
+            options={[
+              { value: "invite", label: "Email an invite" },
+              { value: "password", label: "Set a temporary password" },
+            ]}
+          />
+        ) : (
+          <p className="text-sm font-medium text-ink">Temporary password</p>
+        )}
         {access === "invite" ? (
           <p className="text-xs text-muted">They'll get a link to choose their own password. The link expires in 30 minutes.</p>
         ) : (

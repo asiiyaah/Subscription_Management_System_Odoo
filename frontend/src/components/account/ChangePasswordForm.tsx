@@ -6,6 +6,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import { useToast } from "@/components/ui/Toast";
+import { useAuth } from "@/context/AuthContext";
 import { isPasswordValid } from "@/lib/password";
 import { accountService } from "@/services/accountService";
 import type { ApiError } from "@/services/api";
@@ -16,6 +17,7 @@ type Errors = Partial<Record<"current" | "next" | "confirm", string>>;
 /** Change your own password — same rules as sign-up (R3). */
 export function ChangePasswordForm() {
   const toast = useToast();
+  const { logout } = useAuth();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -24,6 +26,12 @@ export function ChangePasswordForm() {
   const mutation = useMutation<{ message: string }, ApiError, ChangePasswordRequest>({
     mutationFn: (body) => accountService.changePassword(body),
     onSuccess: ({ message }) => {
+      if (accountService.capabilities.passwordChangeEndsSession) {
+        // The old login token stops working once the password changes.
+        toast.success("Password changed. Please log in with your new password.");
+        logout();
+        return;
+      }
       toast.success(message);
       setCurrent("");
       setNext("");

@@ -75,12 +75,14 @@ function ProfileFields({ profile, customerFields }: { profile: Profile; customer
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField label="Full name" icon={<UserIcon />} value={name} onChange={(e) => setName(e.target.value)} error={nameError} />
         <TextField label="Email" icon={<Mail />} value={profile.email} readOnly disabled hint={<span className="text-xs text-muted">Used to log in</span>} />
-        <TextField label="Phone (optional)" type="tel" icon={<Phone />} placeholder="+91 98765 43210" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        {(customerFields || accountService.capabilities.staffPhone) && (
+          <TextField label="Phone (optional)" type="tel" icon={<Phone />} placeholder="+91 98765 43210" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        )}
         {customerFields && (
           <TextField label="Company (optional)" icon={<Building2 />} value={company} onChange={(e) => setCompany(e.target.value)} />
         )}
       </div>
-      {customerFields && (
+      {customerFields && accountService.capabilities.billingAddress && (
         <div className="relative">
           <MapPin className="pointer-events-none absolute right-3.5 top-10 size-4 text-muted" aria-hidden />
           <Textarea label="Billing address (printed on your invoices)" value={address} onChange={(e) => setAddress(e.target.value)} rows={3} />
