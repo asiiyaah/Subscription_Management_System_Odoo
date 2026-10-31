@@ -42,6 +42,11 @@ class UserResponse(BaseModel):
     email: EmailStr
     role: Literal["admin", "staff", "customer"]
 
+    @field_validator("id", mode="before")
+    @classmethod
+    def uuid_to_string(cls, value):
+        return str(value)
+
     model_config = ConfigDict(from_attributes=True)
 
 

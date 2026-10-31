@@ -1,4 +1,4 @@
-import type { ListQuery } from "@/types/common";
+import type { Id, ListQuery } from "@/types/common";
 
 /** Brief (R25): Draft → Confirmed → Paid, plus Cancelled. */
 export type InvoiceStatus = "draft" | "confirmed" | "paid" | "cancelled";
@@ -6,7 +6,7 @@ export type InvoiceStatus = "draft" | "confirmed" | "paid" | "cancelled";
 export type PaymentMethod = "upi" | "bank_transfer" | "card" | "cash" | "cheque";
 
 export interface InvoiceLine {
-  id: number;
+  id: Id;
   product_name: string;
   description?: string;
   quantity: number;
@@ -24,7 +24,7 @@ export interface InvoiceTax {
 }
 
 export interface InvoicePayment {
-  id: number;
+  id: Id;
   /** e.g. "PAY-0042" */
   number: string;
   payment_date: string;
@@ -35,14 +35,14 @@ export interface InvoicePayment {
 
 /** Row shape returned by the invoice list. */
 export interface InvoiceSummaryRow {
-  id: number;
+  id: Id;
   number: string;
   status: InvoiceStatus;
   /** Backend-computed: confirmed, past due date and balance > 0. */
   is_overdue: boolean;
-  customer_id: number;
+  customer_id: Id;
   customer_name: string;
-  subscription_id: number;
+  subscription_id: Id;
   subscription_number: string;
   invoice_date: string;
   due_date: string;
@@ -74,8 +74,8 @@ export interface Invoice extends InvoiceSummaryRow {
 export interface InvoiceListQuery extends ListQuery {
   status?: InvoiceStatus;
   overdue?: "true";
-  customer_id?: number;
-  subscription_id?: number;
+  customer_id?: Id;
+  subscription_id?: Id;
 }
 
 /** GET /api/invoices/summary — counts for tabs and totals for the summary strip. */
@@ -89,7 +89,7 @@ export interface InvoiceStats {
 
 /** One row of GET /api/invoices/due-preview (R22, R26). */
 export interface DueInvoicePreview {
-  subscription_id: number;
+  subscription_id: Id;
   subscription_number: string;
   customer_name: string;
   plan_name: string;
@@ -104,11 +104,11 @@ export interface DueInvoicePreview {
 export interface GenerateInvoicesResult {
   created: number;
   skipped: number;
-  invoice_ids: number[];
+  invoice_ids: Id[];
 }
 
 export interface RecordPaymentRequest {
-  invoice_id: number;
+  invoice_id: Id;
   amount: number;
   payment_date: string;
   method: PaymentMethod;

@@ -10,15 +10,16 @@ import { TextField } from "@/components/ui/TextField";
 import { Textarea } from "@/components/ui/Textarea";
 import { useToast } from "@/components/ui/Toast";
 import { useListQuery } from "@/hooks/useListQuery";
+import type { Id } from "@/types/common";
 import { cn } from "@/lib/cn";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatDate, toIsoDate } from "@/lib/format";
 import { invoiceService } from "@/services/invoiceService";
 import { paymentService } from "@/services/paymentService";
 import type { ApiError } from "@/services/api";
 import { PAYMENT_METHOD_LABELS, type Invoice, type InvoiceListQuery, type PaymentMethod } from "@/types/invoice";
 
 export interface PayableInvoice {
-  id: number;
+  id: Id;
   number: string;
   customer_name: string;
   balance: number;
@@ -159,7 +160,7 @@ function InvoicePicker({ onPick }: { onPick: (invoice: PayableInvoice) => void }
 function PaymentForm({ invoice, onDone }: { invoice: PayableInvoice; onDone: () => void }) {
   const queryClient = useQueryClient();
   const toast = useToast();
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = toIsoDate();
 
   const [amount, setAmount] = useState(String(invoice.balance));
   const [date, setDate] = useState(todayIso);

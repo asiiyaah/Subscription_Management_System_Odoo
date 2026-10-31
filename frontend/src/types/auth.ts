@@ -1,7 +1,8 @@
+import type { Id } from "@/types/common";
 export type Role = "admin" | "staff" | "customer";
 
 export interface User {
-  id: number;
+  id: Id;
   name: string;
   email: string;
   role: Role;

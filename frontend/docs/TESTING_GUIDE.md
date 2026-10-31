@@ -1,6 +1,6 @@
-# SubscriptIQ Frontend — Manual Testing Guide (Steps 2–6)
+# SubscriptIQ Frontend — Manual Testing Guide (Steps 2–9)
 
-How to check Invoices, Payments, Discounts & Taxes, the AI Assistant and Reports by hand.
+How to check Invoices, Payments, Discounts & Taxes, the AI Assistant, Reports, Users & Staff, Settings and the Customer portal by hand.
 Each section has **flows** (a realistic story to walk through) and **checks** (tick them off).
 Requirement IDs (R22, R34 …) refer to [PROBLEM_STATEMENT.md](./PROBLEM_STATEMENT.md).
 
@@ -20,7 +20,7 @@ npm run dev          # open http://localhost:5173
 | Role | Use it to test |
 |---|---|
 | **Admin** | Everything (default for this guide) |
-| **Staff** | Read-only discounts, no Taxes page, can't approve AI actions |
+| **Staff** | Read-only discounts, no Taxes or Users & staff pages, can't approve AI actions |
 
 **Things to know about the mock data**
 
@@ -245,11 +245,27 @@ The finance lead's "one place" page (R37) with filters and a summary view (R38).
 1. Open **Reports** → default period **Last 3 months**; the date range shows at the right of the filter bar.
 2. Read the six summary cards: Active subscriptions, MRR (today), Invoiced in period, Collected in period,
    Outstanding (today), Overdue (count + amount).
-3. **Revenue** tab: "Invoiced vs collected" monthly bars (pink = invoiced, blue = collected, legend at top right),
-   "Invoiced by plan" ranked bars, and a **Monthly breakdown** table with a collection %.
-4. Hover a month's bars → tooltip with both amounts.
-5. Click the **Overdue** summary card → jumps to the **Overdue** tab: aging buckets + oldest-first overdue table.
-6. Click an invoice number → opens that invoice.
+3. **Revenue** tab, top row: "Invoiced vs collected" monthly bars (pink = invoiced, blue = collected) and the
+   **Collection rate** ring (collected ÷ invoiced, with a one-line verdict and both amounts underneath).
+4. Revenue tab, second row: **Revenue burn-up** — two running-total lines; the gap between them is what's still owed.
+   Hover anywhere on it → a vertical guide line and a tooltip with both totals for that month.
+5. "Invoiced by plan" ranked bars, then the **Monthly breakdown** table with collection %.
+6. Click the **Overdue** summary card → jumps to the **Overdue** tab.
+
+### Flow I-2: Read each chart (does it tell the right story?)
+| Tab | Chart | What to check |
+|---|---|---|
+| Revenue | Collection rate ring | % = Collected ÷ Invoiced from the summary cards (rounded). Verdict: ≥90% "Healthy", ≥70% "Some catching up", else "Lagging". |
+| Revenue | Revenue burn-up | Both lines only go **up** (running totals). The last point of each line equals the summary's Invoiced / Collected. |
+| Subscriptions | **MRR share by plan** donut | Centre shows total MRR = the "MRR (today)" card. Legend lists each plan with % and ₹; percentages add up to ~100%. Hover a slice → tooltip. Thin gaps between slices. |
+| Subscriptions | **Quote to active** funnel | Bars get shorter and brighter down the steps (Quoted → Confirmed → Activated → Still active), with "↓ N%" conversion between steps and "paused · closed" under the last bar. |
+| Subscriptions | Subscriptions by status | All six statuses in order (Draft → Closed) in two columns, with status badges. |
+| Payments | **Time to pay** histogram | Four buckets (0–7, 8–15, 16–30, 31+ days), bars brighter for slower payers; "N days average" at the top right. Hover a bar → count. |
+| Overdue | **Outstanding burn-down** | Pink line + soft fill of unpaid balance at each month end; top right shows ▲ (red, got worse) or ▼ (green, improved) since the first month. |
+| Overdue | Overdue by age | Four buckets with bars getting brighter for older debt. |
+
+- [ ] Set **Plan** = *Basic Monthly* → donut has a single slice at 100%.
+- [ ] Pick a customer with no payments in the period → Time to pay shows "No payments in this period."
 
 ### Flow J: Drill into one plan and one customer
 1. Set **Plan** = *Pro Monthly* → every card, chart and table updates (charts dim briefly while loading).
@@ -266,8 +282,7 @@ The finance lead's "one place" page (R37) with filters and a summary view (R38).
 ### Checks
 - [ ] Refresh the page (F5) → period, plan, customer and tab are kept (they're in the URL).
 - [ ] **This month** shows fewer months on the bar chart than **Last 6 months**; months with no activity show as zero (no gaps).
-- [ ] **Subscriptions** tab: status bars in order Draft → Quotation → Confirmed → Active → Paused → Closed with status
-      badges; "MRR by plan"; subscriptions table (subscription numbers link to the placeholder page).
+- [ ] **Subscriptions** tab table: subscription numbers link to the placeholder page.
 - [ ] **Payments** tab: monthly received bars (pink only — single series, no legend), "By method" bars, payments table.
 - [ ] Payments totals here match the **Payments** page for the same dates (use **This month** on both).
 - [ ] Record a payment on the Invoices page, come back to Reports → Collected and Outstanding update.
@@ -278,10 +293,169 @@ The finance lead's "one place" page (R37) with filters and a summary view (R38).
 ### Phone (400 px)
 - [ ] Filters wrap onto several lines; summary cards 2 per row; charts stack full width and stay readable;
       tables scroll inside their boxes.
+- [ ] Donut sits above its legend; funnel labels don't overlap the bars; ring stays round.
 
 ---
 
-## 7. End-to-end flows (run these before the demo)
+## Step 7 — Users & staff (`/users`, admin only)
+
+The internal team (R5) — only an admin can add staff (R7). Customers are **not** here; they sign up themselves.
+
+> Demo users are saved in the browser (localStorage), so they **survive a reload** — unlike invoices/payments.
+> To reset them: DevTools → Application → Local Storage → delete `subscriptiq.mock.users`
+> (and `subscriptiq.mock.settings` to reset Settings).
+
+### Flow L: Invite a new staff member and let them in
+1. As **Admin**, open **Users & staff** (sidebar). You see yourself (with a **You** tag) and Riya Staff.
+2. Right-hand card **What each role can do** lists Admin vs Staff permissions.
+3. **Add staff member** → name *Neha Rao*, email `neha@subscriptiq.com`, role **Staff**, access **Email an invite**.
+4. Success screen → in demo mode click **Open the invite link (set password)** → set a password that passes the rules.
+5. Log out → log in as `neha@subscriptiq.com` with that password → lands on the dashboard as Staff
+   (no Taxes or Users & staff in the sidebar).
+
+### Flow M: Temporary password, then disable
+1. As Admin → **Add staff member** → access **Set a temporary password** → the password checklist appears;
+   a weak password is rejected.
+2. Use `Welcome@2026` → added. Log out and log in with it → works.
+3. Back as Admin → that user's **⋯ → Disable access** → confirm → status **Inactive**, avatar greys out,
+   **Disabled** tab count goes up.
+4. Log out → try to log in as them → "This account has been disabled. Contact your admin."
+5. As Admin → **⋯ → Enable access** → they can log in again.
+
+### Checks
+- [ ] Tabs All / Admins / Staff / Disabled show counts that match the rows.
+- [ ] Search by name or email; sort by Name, Role, Last login, Added.
+- [ ] **Last login** shows "Today" / "N days ago", or "Never" for people who haven't logged in.
+- [ ] Adding an email that already exists (try `customer@acmeretail.in`) → "An account with this email already exists."
+- [ ] Empty name / bad email → field errors.
+- [ ] Switching **Role** in the form updates the description under it.
+- [ ] Click a row (or **⋯ → Edit**) → change name and role → saved; role badge updates.
+- [ ] **Your own row**: no Disable option; in Edit, the role is locked with "You can't change your own role".
+- [ ] Make Riya an Admin, then try to demote **every** admin → "There must always be at least one active admin."
+- [ ] **⋯ → Send password reset** → toast "Password reset link sent to …".
+- [ ] As **Staff**: no **Users & staff** in the sidebar; opening `/users` redirects to the dashboard.
+- [ ] Phone: permissions card moves below the table; dialog fields stack.
+
+---
+
+## Step 8 — Settings (`/settings`)
+
+Profile and Password for everyone; **Business** and **Automation** tabs for admins only. Settings are saved in the
+browser in demo mode, so they **survive a reload**.
+
+### Flow N: Change the business details printed on invoices
+1. As **Admin** → sidebar **Settings** (or click your avatar, top right) → **Business** tab.
+2. Change **Legal name**, **UPI ID** and **Payment terms** to 30 → the hint under terms says "Net 30".
+3. A sticky bar at the bottom says "You have unsaved changes" → **Save changes** → toast.
+4. Open any invoice → the seller block and **Payment information** show the new name and UPI.
+5. Change something else → **Discard** → fields go back to the saved values.
+
+### Flow O: Change your password
+1. **Password** tab → wrong current password → "Your current password is incorrect." under the field.
+2. New password that breaks a rule → checklist shows what's missing; same as current → error.
+3. Valid change → toast; fields clear. Log out and log in with the **new** password.
+
+### Checks
+- [ ] **Profile** tab: edit your name → **Save profile** → the name updates in the header (top right) immediately.
+      Email is greyed out ("Used to log in"). Save is disabled until you change something.
+- [ ] Business: GSTIN `123` → format error; IFSC `HDFC123` → error; invoice prefix with spaces/lowercase is
+      upper-cased; prefix hints show an example number (`INV-2026-0046`).
+- [ ] **Automation** tab: turning off "Generate invoices automatically" hides the **Run at** time; reminder dropdowns
+      change the sentence under them ("Customers hear about renewals 7 days before…"); Save / Discard work.
+- [ ] The tab is in the URL (`/settings?tab=business`) — refresh keeps it.
+- [ ] As **Staff**: only **Profile** and **Password** tabs; `/settings?tab=business` falls back to Profile.
+- [ ] Phone: fields stack; the save bar stays at the bottom of the screen.
+
+---
+
+## Step 9 — Customer portal (`/portal`)
+
+What a customer sees (R6): only **their own** subscriptions and invoices. Log in with the **Customer** demo button
+(Acme Retail).
+
+### Flow P: A customer checks what they owe and pays
+1. Log in as **Customer** → lands on **/portal** (simple top navigation, no admin sidebar).
+2. Home: "Hi, Acme 👋", three cards (Active subscriptions, Next payment with due date, Total outstanding).
+3. If anything is overdue, a red banner says how much, with a link to that invoice.
+4. **Your subscriptions** lists their plans with ₹/month and next invoice date (clicking opens Member 1's placeholder).
+5. **How to pay** card shows UPI and bank details (from Settings → Business) and which invoice number to quote.
+6. **Recent invoices** → click one → invoice page: same printable layout as admin, but **no** Confirm/Send/Cancel/
+   Record payment buttons — only **Print / save PDF**; unpaid invoices show **How to pay** on the right.
+7. As **Admin** in another browser (or after logging out/in), record a payment on that invoice → back as the
+   customer, refresh → balance and status updated.
+
+### Checks
+- [ ] **My invoices**: tabs All / To pay / Paid; search by invoice number; only Acme Retail's invoices; **no drafts**.
+- [ ] Row **⋯ → Print / save PDF** → invoice page opens and the print dialog appears.
+- [ ] **Security:** open `/portal/invoices/<id of another customer's invoice>` (find one as admin, e.g. Nova Labs)
+      → "Invoice not found" — never another customer's data.
+- [ ] **Profile**: edit phone, company, billing address → save; name change shows in the top-right chip.
+      Change password works like Settings.
+- [ ] Customer opening `/invoices`, `/reports`, `/settings` → sent back to `/portal`.
+- [ ] Staff/Admin opening `/portal` → sent back to the dashboard.
+- [ ] Footer shows the business email and phone from Settings.
+- [ ] **New customer:** Sign up a new account → portal shows "No subscriptions yet" / "No invoices yet",
+      cards show 0 / Nothing due / ₹0.00.
+- [ ] Phone (400 px): nav becomes a scrollable row under the logo; cards stack; How to pay moves below the lists.
+
+---
+
+## Live backend — Member 2 modules (`VITE_LIVE_APIS`)
+
+Everything in Steps 2–9 can also run on the real backend. Set up as in [BACKEND_INTEGRATION.md](./BACKEND_INTEGRATION.md):
+
+```bash
+# frontend/.env — then restart npm run dev
+VITE_LIVE_APIS=taxes,discounts,users,settings,lookups,invoices,payments,reports,portal,ai
+```
+
+Use the **database** logins (from `python -m scripts.seed_demo`): your admin, `staff@subscriptiq.com` / `Staff@12345`,
+and `customer@acmeretail.in` / `Customer@12345` (portal). Demo-account buttons on the login page don't work here.
+Data persists, so changes **survive a reload** — and your teammates see them too.
+
+### Flow Q: Real login and account
+1. Log in as the database admin → dashboard. Wrong password → "Incorrect email or password."
+2. Settings → Profile → change your name → refresh → still changed.
+3. Settings → Password → change it → "Please log in with your new password" → back at login → the **old** password
+   fails, the new one works.
+
+### Flow R: Billing day → cash, on real data (Steps 2 + 3)
+1. Invoices → numbers look like `INV-20261031-AB12CD34`; customer, subscription and plan names show (no UUIDs).
+2. Tabs: Overdue shows the seeded overdue invoices (Pixel Studio, Urban Fitness, Bluefin…); counts match the cards.
+3. Search `pixel` → only Pixel Studio; sort by Total; page 2.
+4. **Generate due invoices** → usually "Nothing to generate" (the seed already billed up to today) — that's the
+   no-double-billing check.
+5. Open an **overdue** invoice → line items with GST (CRM lines also show the ₹25 cess), payments list, balance card.
+6. **Record payment** for the full balance → invoice becomes **Paid** → refresh → still Paid.
+7. Payments → the new payment is at the top; "Collected this month" went up.
+
+### Flow S: Reports and AI on real data (Steps 5 + 6)
+1. Reports → Last 3 months → cards show real totals (Invoiced ≈ ₹1.3 L, Outstanding, 4+ overdue).
+2. Overdue tab → the same invoices as the Invoices → Overdue tab. Time to pay shows the **average only** (expected).
+3. AI Assistant → "Show overdue invoices" → tool step + table with real invoice numbers (needs `GEMINI_API_KEY` on the
+   server; without it you get a polite "unavailable" reply — expected).
+
+### Flow T: Customer portal on real data (Step 9)
+1. Log in as `customer@acmeretail.in` → portal shows Acme Retail's subscriptions (by number), invoices and balance.
+2. My invoices → open one → printable invoice; another customer's invoice URL → "Invoice not found".
+3. How to pay shows the bank/UPI saved in Settings → Business.
+
+### Checks
+- [ ] **Taxes:** create a rule for **specific products** (real products listed); Make default moves the badge;
+      deactivate/activate. No Delete (expected — the server deactivates).
+- [ ] **Discounts:** tabs and counts come from the server; create, edit, deactivate; **Delete** a never-used one works,
+      a used one shows the server's error.
+- [ ] **Users & staff:** Last login / Added columns show; add staff by **invite** (message says whether the email went
+      out) or temporary password; Send password reset; disable yourself → server error.
+- [ ] **Settings → Business:** GSTIN, bank and UPI save and appear on invoices; bad GSTIN → server error.
+- [ ] **Settings → Automation:** run time and reminder days save and come back after refresh.
+- [ ] Send invoice without SMTP configured → "Email delivery is not configured" (expected).
+- [ ] As **staff**: no Taxes / Users; discounts read-only; can record payments; can't cancel invoices (admin only).
+- [ ] Stop the backend → pages show "Can't reach the server…" with Try again.
+
+---
+
+## 10. End-to-end flows (run these before the demo)
 
 ### E2E 1 — "Billing day to cash" (Steps 2 + 3)
 1. Invoices → **Generate due invoices** → generate.
@@ -306,13 +480,18 @@ The finance lead's "one place" page (R37) with filters and a summary view (R38).
 2. Payments → **This month** → the "Collected this month" card shows the same amount.
 3. Record a payment → back to Reports → Collected has gone up by that amount, Outstanding down.
 
-### E2E 5 — "Permissions" (all steps)
-1. As **Staff**: Discounts read-only, no Taxes, AI approve disabled, Invoices, Payments & Reports fully usable.
-2. As **Customer**: lands on `/portal` placeholder; opening `/invoices` redirects back to `/portal`.
+### E2E 5 — "Settings flow into documents" (Steps 2 + 8 + 9)
+1. Admin → Settings → Business → change the UPI ID → save.
+2. Admin → open any invoice → Payment information shows the new UPI.
+3. Customer → Portal home → **How to pay** shows the same new UPI.
+
+### E2E 6 — "Permissions" (all steps)
+1. As **Staff**: Discounts read-only, no Taxes, no Users & staff, Settings shows only Profile + Password, AI approve disabled, Invoices, Payments & Reports fully usable.
+2. As **Customer**: lands on `/portal`; sees only Acme Retail's invoices; opening `/invoices` redirects back to `/portal`.
 
 ---
 
-## 8. Reporting a problem
+## 11. Reporting a problem
 
 Copy this into the team chat:
 

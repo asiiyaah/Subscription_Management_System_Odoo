@@ -6,6 +6,11 @@ export const CHART = {
   series1: "#ee3b8e",
   /** Series 2 — only with series 1, never alone. */
   series2: "#3a8ee8",
+  /** Series 3 — only for 3-part charts (donut). Pink/blue/amber validated on all pairs. */
+  series3: "#c98500",
+  /** Ordered steps (funnel stages, age buckets), dim → bright. Validated as an ordinal ramp. */
+  ordinal: ["#8a2a5c", "#b0306d", "#d63a83", "#f56aa8"],
+  surface: "#2a1045",
   grid: "#4a1f6b",
   axisText: "#b9a3cf",
   cursor: "rgba(255,255,255,0.05)",

@@ -17,7 +17,7 @@ import { TextField } from "@/components/ui/TextField";
 import { Textarea } from "@/components/ui/Textarea";
 import { useToast } from "@/components/ui/Toast";
 import { useListQuery } from "@/hooks/useListQuery";
-import { formatCurrency, formatDate, formatRelativeDays } from "@/lib/format";
+import { formatCurrency, formatDate, formatRelativeDays, toIsoDate } from "@/lib/format";
 import { mockDelay, paginate } from "@/mocks/utils";
 import type { ListQuery, Paginated } from "@/types/common";
 
@@ -297,7 +297,7 @@ function SampleFormDialog({ open, onClose }: { open: boolean; onClose: () => voi
           error={error}
           autoFocus
         />
-        <TextField label="Payment date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
+        <TextField label="Payment date" type="date" defaultValue={toIsoDate()} />
         <Select
           label="Method"
           className="sm:col-span-2"

@@ -1,19 +1,24 @@
-from uuid import UUID
 from datetime import date
+from decimal import Decimal
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.core.dependencies import get_current_user
 from app.database.connection import get_db
-from app.models.invoice import Invoice
+from app.models.customer import Customer
+from app.models.invoice import Invoice, InvoiceLine
 from app.models.payment import Payment
-from app.models.subscription import Subscription, SubscriptionLine
+from app.models.subscription import Subscription, SubscriptionHistory, SubscriptionLine
 from app.models.user import User
-from app.services.subscription_service import transition_subscription
+from app.routers.invoices import _attach_detail_fields, _invoice_dict, _ui_status
 from app.routers.settings import ProfileInput, update_profile
+from app.services.subscription_service import transition_subscription
 
 router = APIRouter(prefix="/api/portal", tags=["customer portal"])
+_CONFIRMED = ("open", "sent", "partial", "confirmed")
 
 
 def _customer_required(user: User):
@@ -22,11 +27,21 @@ def _customer_required(user: User):
     return user.customer_id
 
 
+def _invoice_query(db: Session, customer_id):
+    return db.query(Invoice).options(
+        joinedload(Invoice.customer), joinedload(Invoice.subscription).selectinload(Subscription.lines).joinedload(SubscriptionLine.plan),
+        selectinload(Invoice.lines).joinedload(InvoiceLine.product), selectinload(Invoice.lines).selectinload(InvoiceLine.taxes),
+        selectinload(Invoice.payments),
+    ).filter(Invoice.customer_id == customer_id)
+
+
 @router.get("/profile")
 def profile(user: User = Depends(get_current_user)):
     _customer_required(user)
+    customer = user.customer
     return {"id": str(user.customer_id), "name": user.name, "email": user.email,
-        "phone": user.customer.phone if user.customer else None, "company": user.customer.company if user.customer else None}
+        "phone": customer.phone if customer else None, "company": customer.company if customer else None,
+        "billing_address": customer.address if customer else None}
 
 
 @router.patch("/profile")
@@ -39,32 +54,48 @@ def update_portal_profile(payload: ProfileInput, db: Session = Depends(get_db), 
 @router.get("/summary")
 def summary(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     customer_id = _customer_required(user)
-    subs = db.query(Subscription).filter(Subscription.customer_id == customer_id).all()
-    invoices = db.query(Invoice).filter(Invoice.customer_id == customer_id).all()
-    payments = db.query(Payment).filter(Payment.customer_id == customer_id).all()
-    return {"active_subscriptions": sum(s.status == "active" for s in subs),
-        "open_invoices": sum(i.status not in {"paid", "cancelled", "canceled"} for i in invoices),
-        "balance_due": str(sum((i.balance_due or 0 for i in invoices), 0)),
-        "recent_payments": [{"id": str(p.id), "amount": str(p.amount), "payment_date": p.payment_date.isoformat() if p.payment_date else None} for p in sorted(payments, key=lambda p: p.payment_date or p.created_at, reverse=True)[:5]]}
+    today = date.today()
+    subscriptions = db.query(func.count(Subscription.id)).filter(Subscription.customer_id == customer_id).scalar() or 0
+    invoices = db.query(Invoice).filter(Invoice.customer_id == customer_id, Invoice.status != "draft")
+    outstanding = db.query(func.coalesce(func.sum(Invoice.balance_due), 0)).filter(
+        Invoice.customer_id == customer_id, Invoice.status.in_(_CONFIRMED), Invoice.balance_due > 0).scalar()
+    overdue = db.query(func.coalesce(func.sum(Invoice.balance_due), 0)).filter(
+        Invoice.customer_id == customer_id, Invoice.status.in_(_CONFIRMED), Invoice.due_date < today, Invoice.balance_due > 0).scalar()
+    next_due = db.query(func.min(Invoice.due_date)).filter(
+        Invoice.customer_id == customer_id, Invoice.status.in_(_CONFIRMED), Invoice.balance_due > 0).scalar()
+    recent_rows = _invoice_query(db, customer_id).filter(Invoice.status != "draft").order_by(Invoice.invoice_date.desc()).limit(5).all()
+    return {"customer_name": user.customer.name if user.customer else user.name,
+        "active_subscriptions": db.query(func.count(Subscription.id)).filter(Subscription.customer_id == customer_id, Subscription.status == "active").scalar() or 0,
+        "subscriptions": int(subscriptions), "outstanding": float(Decimal(str(outstanding or 0))),
+        "overdue_amount": float(Decimal(str(overdue or 0))), "next_due": next_due.isoformat() if next_due else None,
+        "open_invoices": invoices.filter(Invoice.status.notin_(["paid", "cancelled", "canceled"])).count(),
+        "balance_due": float(Decimal(str(outstanding or 0))),
+        "recent_invoices": [_invoice_dict(row) for row in recent_rows]}
 
 
 @router.get("/subscriptions")
-def my_subscriptions(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def my_subscriptions(page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
+                     db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     cid = _customer_required(user)
-    rows = db.query(Subscription).filter(Subscription.customer_id == cid).order_by(Subscription.created_at.desc()).all()
+    query = db.query(Subscription).filter(Subscription.customer_id == cid)
+    total = query.count()
+    rows = query.order_by(Subscription.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     return {"items": [{"id": str(s.id), "subscription_number": s.subscription_number, "status": s.status,
-        "next_billing_date": s.next_billing_date.isoformat() if s.next_billing_date else None, "total": str(s.total or 0)} for s in rows]}
+        "next_billing_date": s.next_billing_date.isoformat() if s.next_billing_date else None,
+        "total": float(Decimal(str(s.total or 0)))} for s in rows], "total": total, "page": page, "page_size": page_size}
 
 
 @router.get("/subscriptions/{subscription_id}")
 def subscription_detail(subscription_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     cid = _customer_required(user)
-    s = db.query(Subscription).options(joinedload(Subscription.lines)).filter(Subscription.id == subscription_id, Subscription.customer_id == cid).first()
-    if not s:
+    sub = db.query(Subscription).options(joinedload(Subscription.lines).joinedload(SubscriptionLine.plan)).filter(
+        Subscription.id == subscription_id, Subscription.customer_id == cid).first()
+    if not sub:
         raise HTTPException(404, "Subscription not found")
-    return {"id": str(s.id), "subscription_number": s.subscription_number, "status": s.status,
-        "billing_period": s.billing_period, "next_billing_date": s.next_billing_date.isoformat() if s.next_billing_date else None,
-        "total": str(s.total or 0), "lines": [{"product_id": str(l.product_id), "description": l.description, "quantity": str(l.quantity or 1), "line_total": str(l.line_total)} for l in s.lines]}
+    return {"id": str(sub.id), "subscription_number": sub.subscription_number, "status": sub.status,
+        "billing_period": sub.billing_period, "next_billing_date": sub.next_billing_date.isoformat() if sub.next_billing_date else None,
+        "total": float(Decimal(str(sub.total or 0))), "lines": [{"product_id": str(line.product_id),
+        "description": line.description, "quantity": float(line.quantity or 1), "line_total": float(Decimal(str(line.line_total)))} for line in sub.lines]}
 
 
 @router.post("/subscriptions/{subscription_id}/{action}")
@@ -72,7 +103,8 @@ def subscription_self_service(subscription_id: UUID, action: str, db: Session = 
     cid = _customer_required(user)
     if action not in {"pause", "resume", "close", "renew"}:
         raise HTTPException(403, "Action is not available in the customer portal")
-    sub = db.query(Subscription).options(selectinload(Subscription.lines).joinedload(SubscriptionLine.plan)).filter(Subscription.id == subscription_id, Subscription.customer_id == cid).with_for_update().first()
+    sub = db.query(Subscription).options(selectinload(Subscription.lines).joinedload(SubscriptionLine.plan)).filter(
+        Subscription.id == subscription_id, Subscription.customer_id == cid).with_for_update().first()
     if not sub:
         raise HTTPException(404, "Subscription not found")
     if action == "renew":
@@ -81,9 +113,9 @@ def subscription_self_service(subscription_id: UUID, action: str, db: Session = 
         from app.services.subscription_service import next_billing_date
         anchor = sub.next_billing_date if sub.next_billing_date and sub.next_billing_date > date.today() else date.today()
         sub.next_billing_date = next_billing_date(anchor, sub.billing_period or "monthly", sub.billing_interval or 1)
-        from app.models.subscription import SubscriptionHistory
         from app.services.activity_service import log_activity
-        db.add(SubscriptionHistory(subscription_id=sub.id, previous_status=sub.status, new_status=sub.status, action="customer_renew", changed_by=user.id))
+        db.add(SubscriptionHistory(subscription_id=sub.id, previous_status=sub.status, new_status=sub.status,
+            action="customer_renew", changed_by=user.id))
         log_activity(db, user_id=user.id, action="subscription_renew", entity_type="subscription", entity_id=sub.id)
         db.commit()
         return {"id": str(sub.id), "status": sub.status, "next_billing_date": sub.next_billing_date.isoformat()}
@@ -94,23 +126,45 @@ def subscription_self_service(subscription_id: UUID, action: str, db: Session = 
 
 
 @router.get("/invoices")
-def my_invoices(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def my_invoices(status: str | None = None, q: str | None = None, search: str | None = None,
+                unpaid: bool = False, page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
+                db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     cid = _customer_required(user)
-    rows = db.query(Invoice).filter(Invoice.customer_id == cid).order_by(Invoice.invoice_date.desc()).all()
-    return {"items": [{"id": str(i.id), "invoice_number": i.invoice_number, "status": i.status, "invoice_date": i.invoice_date.isoformat(), "due_date": i.due_date.isoformat(), "total": str(i.total or 0), "balance_due": str(i.balance_due or 0)} for i in rows]}
+    query = _invoice_query(db, cid).filter(Invoice.status != "draft")
+    if status:
+        if status == "confirmed":
+            query = query.filter(Invoice.status.in_(_CONFIRMED))
+        elif status == "cancelled":
+            query = query.filter(Invoice.status.in_(["cancelled", "canceled"]))
+        else:
+            query = query.filter(Invoice.status == status)
+    if unpaid:
+        query = query.filter(Invoice.balance_due > 0, Invoice.status.in_(_CONFIRMED))
+    term = (q or search or "").strip()
+    if term:
+        from app.models.subscription import Subscription
+        like = f"%{term}%"
+        query = query.filter(or_(Invoice.invoice_number.ilike(like), Invoice.subscription.has(Subscription.subscription_number.ilike(like))))
+    total = query.count()
+    rows = query.order_by(Invoice.invoice_date.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    return {"items": [_invoice_dict(row) for row in rows], "total": total, "page": page, "page_size": page_size}
 
 
 @router.get("/invoices/{invoice_id}")
 def invoice_detail(invoice_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     cid = _customer_required(user)
-    i = db.query(Invoice).options(joinedload(Invoice.lines)).filter(Invoice.id == invoice_id, Invoice.customer_id == cid).first()
-    if not i:
+    invoice = _invoice_query(db, cid).filter(Invoice.id == invoice_id, Invoice.status != "draft").first()
+    if not invoice:
         raise HTTPException(404, "Invoice not found")
-    return {"id": str(i.id), "invoice_number": i.invoice_number, "status": i.status, "invoice_date": i.invoice_date.isoformat(), "due_date": i.due_date.isoformat(), "total": str(i.total or 0), "amount_paid": str(i.amount_paid or 0), "balance_due": str(i.balance_due or 0), "lines": [{"description": l.description, "quantity": str(l.quantity or 1), "line_total": str(l.line_total)} for l in i.lines]}
+    return _invoice_dict(_attach_detail_fields(db, invoice))
 
 
 @router.get("/payments")
-def my_payments(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def my_payments(page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
+                db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     cid = _customer_required(user)
-    rows = db.query(Payment).filter(Payment.customer_id == cid).order_by(Payment.payment_date.desc()).all()
-    return {"items": [{"id": str(p.id), "invoice_id": str(p.invoice_id), "amount": str(p.amount), "payment_method": p.payment_method, "payment_date": p.payment_date.isoformat() if p.payment_date else None} for p in rows]}
+    query = db.query(Payment).options(joinedload(Payment.customer), joinedload(Payment.invoice)).filter(Payment.customer_id == cid)
+    total = query.count()
+    rows = query.order_by(Payment.payment_date.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    from app.routers.payments import _payment_dict
+    return {"items": [_payment_dict(row) for row in rows], "total": total, "page": page, "page_size": page_size}

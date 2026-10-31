@@ -36,7 +36,7 @@ Thumbs.db
 *.tmp
 *.bak
 
-# Local test databases and generated test output
+# Generated test output
 *.sqlite3
 test-results/
 tests/.artifacts/

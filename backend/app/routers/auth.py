@@ -51,6 +51,16 @@ def _token_digest(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+def create_password_reset_token(db: Session, user: User) -> str:
+    """Issue a single-use reset/invitation token using the shared password-reset flow."""
+    now = datetime.now(timezone.utc)
+    db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id,
+        PasswordResetToken.used_at.is_(None)).update({PasswordResetToken.used_at: now}, synchronize_session=False)
+    raw_token = secrets.token_urlsafe(32)
+    db.add(PasswordResetToken(user_id=user.id, token_hash=_token_digest(raw_token), expires_at=now + RESET_TTL))
+    return raw_token
+
+
 @router.post("/signup", response_model=SignupResponse, status_code=status.HTTP_201_CREATED)
 def signup(payload: SignupRequest, db: Session = Depends(get_db)):
     email = str(payload.email).lower()
@@ -76,8 +86,12 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
     email = str(payload.email).lower()
     user = db.query(User).filter(User.email == email).first()
-    if not user or not user.is_active or not verify_password(payload.password, user.password_hash):
+    if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Incorrect email or password.")
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="This account has been disabled. Contact your admin.")
+    user.last_login = datetime.now(timezone.utc)
+    db.commit()
     token = create_access_token({"sub": str(user.id), "role": user.role, "pwdv": password_token_version(user.password_hash)})
     return AuthResponse(access_token=token, user=UserResponse.model_validate(user))
 
@@ -87,17 +101,7 @@ def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db
     message = "If this email is registered, a password reset link has been sent to it."
     user = db.query(User).filter(User.email == str(payload.email).lower(), User.is_active.is_(True)).first()
     if user:
-        now = datetime.now(timezone.utc)
-        db.query(PasswordResetToken).filter(
-            PasswordResetToken.user_id == user.id,
-            PasswordResetToken.used_at.is_(None),
-        ).update({PasswordResetToken.used_at: now}, synchronize_session=False)
-        raw_token = secrets.token_urlsafe(32)
-        db.add(PasswordResetToken(
-            user_id=user.id,
-            token_hash=_token_digest(raw_token),
-            expires_at=now + RESET_TTL,
-        ))
+        raw_token = create_password_reset_token(db, user)
         db.commit()
         try:
             delivered = send_password_reset_email(user.email, raw_token)
