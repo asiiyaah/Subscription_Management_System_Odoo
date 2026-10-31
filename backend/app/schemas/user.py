@@ -41,6 +41,8 @@ class UserResponse(BaseModel):
     name: str
     email: EmailStr
     role: Literal["admin", "staff", "customer"]
+    # True after an admin set a temporary password: the app sends the user to "Set a new password" first.
+    must_change_password: bool = False
 
     @field_validator("id", mode="before")
     @classmethod
@@ -58,6 +60,8 @@ class AuthResponse(BaseModel):
 
 class SignupResponse(BaseModel):
     user: UserResponse
+    # True when REQUIRE_EMAIL_VERIFICATION is on: the customer must click the emailed link before logging in.
+    verification_required: bool = False
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -86,3 +90,18 @@ class ChangePasswordRequest(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+
+
+class ChangePasswordResponse(BaseModel):
+    message: str
+    # Changing the password invalidates old tokens, so a fresh one is returned to stay signed in.
+    access_token: str
+    user: UserResponse
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str = Field(min_length=20)
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr

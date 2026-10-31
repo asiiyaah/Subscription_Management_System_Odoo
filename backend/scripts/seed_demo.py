@@ -52,13 +52,13 @@ def main() -> None:
         admin = db.query(User).filter(User.role == "admin", User.is_active.is_(True)).first()
         if not admin:
             admin = User(name="Admin", email="admin@subscriptiq.com", password_hash=hash_password("Admin@12345"),
-                         role="admin", is_active=True)
+                         role="admin", is_active=True, email_verified_at=datetime.now(timezone.utc))
             db.add(admin)
             db.commit()
             print("Created admin: admin@subscriptiq.com / Admin@12345")
         if not db.query(User).filter(User.email == "staff@subscriptiq.com").first():
             db.add(User(name="Riya Sharma", email="staff@subscriptiq.com", password_hash=hash_password("Staff@12345"),
-                        role="staff", is_active=True))
+                        role="staff", is_active=True, email_verified_at=datetime.now(timezone.utc)))
 
         # --- Business settings ----------------------------------------------------------
         if not db.query(BusinessSetting).first():
@@ -165,7 +165,8 @@ def main() -> None:
         # Portal login for Acme Retail (R6) — log in to /portal as this customer.
         if not db.query(User).filter(User.email == "customer@acmeretail.in").first():
             db.add(User(name="Acme Retail", email="customer@acmeretail.in", password_hash=hash_password("Customer@12345"),
-                        role="customer", is_active=True, customer_id=acme.id))
+                        role="customer", is_active=True, customer_id=acme.id,
+                        email_verified_at=datetime.now(timezone.utc)))
         db.commit()
         print("8 customers created.")
 

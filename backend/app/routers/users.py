@@ -1,6 +1,7 @@
 import logging
 import secrets
 import smtplib
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -15,7 +16,7 @@ from app.database.connection import get_db
 from app.models.user import User
 from app.routers.auth import create_password_reset_token
 from app.schemas.user import UserResponse, validate_password_strength
-from app.services.email_service import send_password_reset_email
+from app.services.email_service import send_invite_email, send_password_reset_email
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -48,17 +49,29 @@ def _user_dict(user: User):
         "is_active": bool(user.is_active),
         "created_at": user.created_at.isoformat() if user.created_at else None,
         "last_login": user.last_login.isoformat() if user.last_login else None,
+        "must_change_password": bool(user.must_change_password),
         "customer_id": str(user.customer_id) if user.customer_id else None,
     }
 
 
 def _send_invite(db: Session, user: User) -> bool:
-    raw_token = create_password_reset_token(db, user)
+    """Email a 48-hour "set your password" link to a new team member."""
+    raw_token = create_password_reset_token(db, user, "invite")
+    db.commit()
+    try:
+        return bool(send_invite_email(user.email, raw_token, user.name))
+    except (OSError, smtplib.SMTPException) as exc:
+        logger.warning("Invitation email failed for user %s (%s)", user.id, type(exc).__name__)
+        return False
+
+
+def _send_reset(db: Session, user: User) -> bool:
+    raw_token = create_password_reset_token(db, user, "reset")
     db.commit()
     try:
         return bool(send_password_reset_email(user.email, raw_token))
     except (OSError, smtplib.SMTPException) as exc:
-        logger.warning("Password setup invitation failed for user %s (%s)", user.id, type(exc).__name__)
+        logger.warning("Password reset email failed for user %s (%s)", user.id, type(exc).__name__)
         return False
 
 
@@ -96,8 +109,10 @@ def user_counts(db: Session = Depends(get_db), _: User = Depends(require_roles("
 def create_user(payload: StaffCreate, db: Session = Depends(get_db), _: User = Depends(require_roles("admin"))):
     payload.validate_values()
     password = payload.password or secrets.token_urlsafe(48)
+    # A temporary password must be replaced at first login; an invite link lets them choose one directly.
     user = User(name=payload.name.strip(), email=str(payload.email).lower(),
-        password_hash=hash_password(password), role=payload.role, is_active=True)
+        password_hash=hash_password(password), role=payload.role, is_active=True,
+        must_change_password=not payload.send_invite, email_verified_at=datetime.now(timezone.utc))
     db.add(user)
     try:
         db.flush()
@@ -141,5 +156,5 @@ def send_user_password_reset(user_id: UUID, db: Session = Depends(get_db), _: Us
         raise HTTPException(404, "User not found")
     if not user.is_active:
         raise HTTPException(409, "Cannot send a password reset to a disabled account")
-    sent = _send_invite(db, user)
-    return {"message": "Password reset email sent" if sent else "Password reset token created; email delivery is not configured", "sent": sent}
+    sent = _send_reset(db, user)
+    return {"message": f"Password reset link sent to {user.email}" if sent else "Email isn't set up on the server, so the reset link couldn't be sent", "sent": sent}

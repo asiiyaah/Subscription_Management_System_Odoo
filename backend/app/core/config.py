@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     SMTP_FROM_EMAIL: str = ""
     SMTP_STARTTLS: bool = True
+
+    # Customers must confirm their email before logging in. Off by default so the app works without SMTP.
+    REQUIRE_EMAIL_VERIFICATION: bool = False
+    INVITE_LINK_TTL_HOURS: int = 48
     ENABLE_AUTOMATION: bool = False
     AUTO_GENERATE_DUE_INVOICES: bool = False
     AUTO_CLOSE_EXPIRED_SUBSCRIPTIONS: bool = False

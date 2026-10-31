@@ -22,7 +22,7 @@ from app.models.subscription import Subscription
 from app.models.user import User
 from app.models.user import PasswordResetToken
 from app.core.security import hash_password
-from app.services.email_service import send_password_reset_email
+from app.services.email_service import send_invite_email, send_password_reset_email
 from app.services.activity_service import log_activity
 from app.models.user import PasswordResetToken
 from app.core.security import hash_password
@@ -174,8 +174,8 @@ def invite_customer(customer_id: UUID, db: Session = Depends(get_db), actor: Use
     try:
         db.flush()
         from app.routers.auth import create_password_reset_token
-        reset_token = create_password_reset_token(db, user)
-        if not send_password_reset_email(user.email, reset_token):
+        invite_token = create_password_reset_token(db, user, "invite")
+        if not send_invite_email(user.email, invite_token, customer.name, customer=True):
             db.rollback()
             raise HTTPException(503, "Email delivery is not configured; portal invitation was not created")
         db.commit()

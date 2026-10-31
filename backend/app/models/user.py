@@ -27,6 +27,10 @@ class User(Base):
     )
     created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Set when an admin gives a temporary password; the user must choose their own before using the app.
+    must_change_password: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    # When the user proved they own the email (verification link, invite link or password reset).
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     customer = relationship("Customer", back_populates="portal_user", foreign_keys=[customer_id])
@@ -49,6 +53,8 @@ class PasswordResetToken(Base):
         ForeignKey("users.id", ondelete="CASCADE")
     )
     token_hash: Mapped[str] = mapped_column(Text, unique=True)
+    # "reset" (forgot password, 30 min), "invite" (set first password, 48 h) or "verify" (confirm email, 48 h).
+    purpose: Mapped[str] = mapped_column(String(20), default="reset", server_default=text("'reset'"))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now())
