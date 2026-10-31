@@ -34,12 +34,12 @@ adapters in `src/services/*Service.ts` only convert ids (UUID strings), decimal 
 | Users & staff | ✅ | `/api/users`, `/counts`, `/{id}/password-reset` | Invite / reset emails need SMTP; without it the user is still created and the message says so. List is newest first (no sort). |
 | Settings | ✅ | `/api/settings`, `/api/settings/business` | — |
 | Reports | ✅ | `/api/reports`, `/options` | "Time to pay" includes the four payment-delay buckets and average. Burn-down groups unpaid balance by due month. |
-| Customer portal | ✅ | `/api/portal/*` | Subscription rows include the plan name and monthly amount. |
+| Customer portal | ✅ | `/api/portal/*` | Subscription list/detail pages are implemented; rows include the plan name and monthly amount. |
 | AI assistant | ✅ | `/api/ai/chat`, `/api/ai/actions/{id}/approve\|reject` | Needs `GEMINI_API_KEY` (or OpenAI) on the server; without it the assistant replies that it's unavailable. |
 
 ## 3. Original backend change request (now implemented)
 
-Kept for reference — the backend commit `bb2aba5` implemented these. The follow-ups for portal plan names, payment-timing buckets and invoice customer-name sorting are now implemented.
+Kept for reference — the backend commit `bb2aba5` implemented these. The follow-ups for portal plan names, payment-timing buckets and invoice customer-name sorting are now implemented. The customer detail page now embeds invoice and payment tables, and live customer IDs are handled as UUID strings. SMTP-backed delivery code is implemented for invoices, staff invitations and password resets; configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL` and `SMTP_STARTTLS` in the backend environment to enable delivery. Without SMTP, affected screens/endpoints report that delivery is unavailable. Product, plan and subscription management continue to use mock data while `VITE_USE_MOCKS=true`; those Member 1 modules are outside this integration adapter's `VITE_LIVE_APIS` list.
 
 ### Invoices (`backend/app/routers/invoices.py`)
 1. **List + detail rows:** add `customer_name`, `subscription_number`, `plan_name`. Without them the list can only show UUIDs.
