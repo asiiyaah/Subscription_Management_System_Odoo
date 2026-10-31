@@ -28,3 +28,6 @@ apscheduler
 
 # Utilities
 requests
+
+# Test runner
+pytest

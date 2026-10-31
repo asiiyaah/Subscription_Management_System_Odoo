@@ -17,8 +17,21 @@ class Settings(BaseSettings):
 
     AI_PROVIDER: str = "gemini"
     GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.0-flash"
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-4o-mini"
 
     FRONTEND_URL: str = "http://localhost:5173"
+
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""
+    SMTP_STARTTLS: bool = True
+    ENABLE_AUTOMATION: bool = False
+    AUTO_GENERATE_DUE_INVOICES: bool = False
+    AUTO_CLOSE_EXPIRED_SUBSCRIPTIONS: bool = False
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",

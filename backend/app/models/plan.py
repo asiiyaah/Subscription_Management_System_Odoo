@@ -31,12 +31,15 @@ class Plan(Base):
     trial_days: Mapped[int | None] = mapped_column(
         Integer, server_default=text("0")
     )
+    minimum_quantity: Mapped[int] = mapped_column(Integer, server_default=text("1"))
     is_pausable: Mapped[bool | None] = mapped_column(
         Boolean, server_default=text("true")
     )
     is_renewable: Mapped[bool | None] = mapped_column(
         Boolean, server_default=text("true")
     )
+    auto_close: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    allows_early_closure: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
     start_date: Mapped[date | None] = mapped_column(Date)
     end_date: Mapped[date | None] = mapped_column(Date)
     status: Mapped[str | None] = mapped_column(

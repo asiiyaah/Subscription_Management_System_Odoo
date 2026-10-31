@@ -30,6 +30,7 @@ class Subscription(Base):
     )
     start_date: Mapped[date | None] = mapped_column(Date)
     next_billing_date: Mapped[date | None] = mapped_column(Date)
+    quotation_valid_until: Mapped[date | None] = mapped_column(Date)
     end_date: Mapped[date | None] = mapped_column(Date)
     billing_period: Mapped[str | None] = mapped_column(String(20))
     billing_interval: Mapped[int | None] = mapped_column(
@@ -122,3 +123,13 @@ class SubscriptionHistory(Base):
     created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     subscription = relationship("Subscription", back_populates="history")
+
+
+class RenewalReminderLog(Base):
+    __tablename__ = "renewal_reminder_logs"
+    __table_args__ = (Index("uq_renewal_reminder_subscription_end", "subscription_id", "subscription_end_date", unique=True),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()"))
+    subscription_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("subscriptions.id", ondelete="CASCADE"))
+    subscription_end_date: Mapped[date] = mapped_column(Date)
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
