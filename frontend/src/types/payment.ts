@@ -1,17 +1,17 @@
-import type { ListQuery } from "@/types/common";
+import type { Id, ListQuery } from "@/types/common";
 import type { PaymentMethod } from "@/types/invoice";
 
 /** Row shape returned by GET /api/payments. */
 export interface PaymentRow {
-  id: number;
+  id: Id;
   number: string;
   payment_date: string;
   amount: number;
   method: PaymentMethod;
   note?: string;
-  invoice_id: number;
+  invoice_id: Id;
   invoice_number: string;
-  customer_id: number;
+  customer_id: Id;
   customer_name: string;
 }
 
@@ -22,7 +22,7 @@ export interface PaymentListQuery extends ListQuery {
   date_from?: string;
   /** Inclusive, YYYY-MM-DD */
   date_to?: string;
-  customer_id?: number;
+  customer_id?: Id;
   invoice_id?: number;
 }
 

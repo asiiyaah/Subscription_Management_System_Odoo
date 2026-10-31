@@ -3,7 +3,7 @@ import { mockTaxes } from "@/mocks/pricing";
 import type { Id } from "@/types/common";
 import type { TaxInput, TaxRule } from "@/types/tax";
 
-// Endpoints: frontend/docs/API_PRICING_CONTRACT.md (mock) — live mapping below follows backend/app/routers/taxes.py.
+// Contract: frontend/docs/API_PRICING_CONTRACT.md — backend/app/routers/taxes.py follows it.
 const LIVE = isLive("taxes");
 
 async function request<T>(call: () => Promise<{ data: T }>): Promise<T> {
@@ -14,43 +14,46 @@ async function request<T>(call: () => Promise<{ data: T }>): Promise<T> {
   }
 }
 
-/** Backend tax row → UI tax rule. The backend has no per-rule product targeting (it's set per product). */
+/** Backend tax row (routers/taxes.py `_tax_dict`) — already in the UI's shape, plus legacy fields. */
 interface ApiTax {
   id: string;
   name: string;
-  tax_type: "percentage" | "fixed";
-  rate: string;
-  is_active: boolean | null;
+  type: "percentage" | "fixed";
+  rate: string | number;
+  active: boolean;
   is_default: boolean;
+  applies_to: "all" | "products";
+  product_ids: string[];
+  product_names: string[];
 }
 
-function fromApi(t: ApiTax): TaxRule {
-  return {
-    id: t.id,
-    name: t.name,
-    type: t.tax_type,
-    rate: num(t.rate),
-    applies_to: "all",
-    product_ids: [],
-    product_names: [],
-    is_default: t.is_default,
-    active: t.is_active !== false,
-  };
-}
+const fromApi = (t: ApiTax): TaxRule => ({
+  id: t.id,
+  name: t.name,
+  type: t.type,
+  rate: num(t.rate),
+  applies_to: t.applies_to,
+  product_ids: t.product_ids,
+  product_names: t.product_names,
+  is_default: t.is_default,
+  active: t.active,
+});
 
 const toApi = (input: TaxInput) => ({
   name: input.name,
-  tax_type: input.type,
+  type: input.type,
   rate: input.rate,
-  is_active: input.is_default ? true : input.active,
+  active: input.is_default ? true : input.active,
   is_default: input.is_default,
+  applies_to: input.applies_to,
+  product_ids: input.applies_to === "products" ? input.product_ids : [],
 });
 
 export const taxService = {
   /** What the connected API supports — the UI hides what isn't there. */
   capabilities: {
-    /** Pick specific products on the rule itself (live: set per product instead). */
-    productTargeting: !LIVE,
+    /** Pick specific products on the rule itself. */
+    productTargeting: true,
     /** Real delete (live: DELETE only deactivates). */
     hardDelete: !LIVE,
   },
@@ -74,12 +77,12 @@ export const taxService = {
 
   async setDefault(id: Id): Promise<TaxRule> {
     if (!LIVE) return mockTaxes.setDefault(id);
-    return fromApi(await request<ApiTax>(() => api.patch(`/api/taxes/${id}`, { is_default: true, is_active: true })));
+    return fromApi(await request<ApiTax>(() => api.post(`/api/taxes/${id}/default`)));
   },
 
   async setActive(id: Id, active: boolean): Promise<TaxRule> {
     if (!LIVE) return mockTaxes.setActive(id, active);
-    return fromApi(await request<ApiTax>(() => api.patch(`/api/taxes/${id}`, { is_active: active })));
+    return fromApi(await request<ApiTax>(() => api.patch(`/api/taxes/${id}`, { active })));
   },
 
   /** Mock: deletes. Live: the backend deactivates instead (history is kept). */

@@ -1,7 +1,7 @@
 // Stand-in for GET /api/reports: aggregates the billing mock the way the backend will (SQL GROUP BYs).
 import { billingSnapshot } from "@/mocks/billing";
 import { localIso, mockDelay } from "@/mocks/utils";
-import type { ProductOption } from "@/types/common";
+import type { Id, ProductOption } from "@/types/common";
 import type { PaymentMethod } from "@/types/invoice";
 import type { ReportData, ReportFilters, SubscriptionStatus } from "@/types/report";
 
@@ -58,17 +58,17 @@ export const mockReports = {
     await mockDelay(600);
     const snap = billingSnapshot();
     const { date_from: from, date_to: to, plan, customer_id } = filters;
-    const customerId = customer_id ? Number(customer_id) : undefined;
+    const customerId = customer_id || undefined;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const matches = (planName: string, cid: number) => (!plan || planName === plan) && (!customerId || cid === customerId);
+    const matches = (planName: string, cid: Id) => (!plan || planName === plan) && (!customerId || String(cid) === String(customerId));
 
     // Invoices / payments in scope
     const invoices = snap.invoices.filter((inv) => matches(inv.plan_name, inv.customer_id));
     const live = invoices.filter((inv) => inv.status !== "draft" && inv.status !== "cancelled");
     const inRange = live.filter((inv) => inv.invoice_date >= from && inv.invoice_date <= to);
-    const planByInvoice = new Map(snap.invoices.map((inv) => [inv.id, inv.plan_name]));
+    const planByInvoice = new Map<Id, string>(snap.invoices.map((inv) => [inv.id, inv.plan_name]));
     const payments = snap.payments
       .filter((p) => matches(planByInvoice.get(p.invoice_id) ?? "", p.customer_id))
       .filter((p) => p.payment_date >= from && p.payment_date <= to)

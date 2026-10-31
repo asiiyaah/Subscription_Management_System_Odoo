@@ -81,9 +81,9 @@ function Content({ data }: { data: PortalSummary | undefined }) {
                       className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-4 transition hover:bg-surface-2/40"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold">{sub.plan_name}</p>
+                        <p className="font-semibold">{sub.plan_name || sub.number}</p>
                         <p className="text-xs text-muted">
-                          {sub.number}
+                          {sub.plan_name ? sub.number : "Subscription"}
                           {sub.next_invoice_date && ` · next invoice ${formatDate(sub.next_invoice_date)}`}
                         </p>
                       </div>

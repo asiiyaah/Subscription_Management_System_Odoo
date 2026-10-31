@@ -6,7 +6,7 @@ export const USE_MOCKS = import.meta.env.VITE_USE_MOCKS !== "false";
 
 /**
  * Member 2's modules can go live one at a time while everything else stays on mocks:
- *   VITE_LIVE_APIS=auth,taxes,discounts,users,settings
+ *   VITE_LIVE_APIS=taxes,discounts,users,settings,lookups,invoices,payments,reports,portal,ai
  * Any live module needs a real login token, so listing anything also makes `auth` and `account` live.
  */
 const LIVE_APIS = new Set(
@@ -20,7 +20,19 @@ if (LIVE_APIS.size > 0) {
   LIVE_APIS.add("account");
 }
 
-export type LiveModule = "auth" | "account" | "taxes" | "discounts" | "users" | "settings" | "lookups";
+export type LiveModule =
+  | "auth"
+  | "account"
+  | "taxes"
+  | "discounts"
+  | "users"
+  | "settings"
+  | "lookups"
+  | "invoices"
+  | "payments"
+  | "reports"
+  | "portal"
+  | "ai";
 
 /** True when this module should call the real backend instead of its mock. */
 export function isLive(module: LiveModule): boolean {

@@ -6,12 +6,13 @@ import { invoiceColumns } from "@/components/invoices/invoiceColumns";
 import { useInvoiceActions } from "@/components/invoices/useInvoiceActions";
 import { useListQuery } from "@/hooks/useListQuery";
 import { invoiceService } from "@/services/invoiceService";
+import type { Id } from "@/types/common";
 
 interface InvoiceTableProps {
   /** Show only this customer's invoices (customer detail page). */
-  customerId?: number;
+  customerId?: Id;
   /** Show only this subscription's invoices (subscription detail page). */
-  subscriptionId?: number;
+  subscriptionId?: Id;
   pageSize?: number;
 }
 

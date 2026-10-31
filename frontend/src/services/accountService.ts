@@ -27,6 +27,7 @@ interface ApiProfile {
   email: string;
   phone?: string | null;
   company?: string | null;
+  billing_address?: string | null;
 }
 
 const fromApi = (p: ApiProfile): Profile => ({
@@ -35,14 +36,15 @@ const fromApi = (p: ApiProfile): Profile => ({
   email: p.email,
   phone: p.phone ?? undefined,
   company: p.company ?? undefined,
+  billing_address: p.billing_address ?? undefined,
 });
 
 export const accountService = {
   capabilities: {
     /** Staff phone numbers (live: only customers have a phone field). */
     staffPhone: !LIVE,
-    /** Customer billing address (live: not stored yet). */
-    billingAddress: !LIVE,
+    /** Customer billing address. */
+    billingAddress: true,
     /** Live: changing the password invalidates the current login, so the user signs in again. */
     passwordChangeEndsSession: LIVE,
   },
@@ -57,7 +59,13 @@ export const accountService = {
     // The backend's profile update also takes the email (unchanged here — it's the login).
     const current = await request<ApiProfile>(() => api.get(profileUrl()));
     const saved = await request<ApiProfile>(() =>
-      api.patch(profileUrl(), { name: input.name, email: current.email, phone: input.phone ?? null, company: input.company ?? null }),
+      api.patch(profileUrl(), {
+        name: input.name,
+        email: current.email,
+        phone: input.phone ?? null,
+        company: input.company ?? null,
+        billing_address: input.billing_address ?? null,
+      }),
     );
     return { ...fromApi(saved), phone: saved.phone ?? input.phone, company: saved.company ?? input.company };
   },
