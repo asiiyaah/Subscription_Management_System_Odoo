@@ -37,7 +37,7 @@ export default function Customers() {
   });
 
   const inviteMutation = useMutation({
-    mutationFn: (id: number) => customerService.inviteToPortal(id),
+    mutationFn: (id: Customer["id"]) => customerService.inviteToPortal(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customers"] });
       toast.success("Portal invitation sent successfully.");

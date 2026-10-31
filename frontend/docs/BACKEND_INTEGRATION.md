@@ -27,19 +27,19 @@ adapters in `src/services/*Service.ts` only convert ids (UUID strings), decimal 
 | Module | Live | Backend | Remaining limitations |
 |---|---|---|---|
 | Auth, account | ✅ | `/api/auth/*`, `/api/settings/profile`, `/api/portal/profile` | Staff have no phone field. **Changing your password signs you out** (old tokens are invalidated). |
-| Invoices + billing run | ✅ | `/api/invoices`, `/summary`, `/due-preview`, `/generate-due`, actions | Sorting by customer name falls back to invoice date. "Send" needs SMTP on the server (otherwise 503 with a clear message). |
+| Invoices + billing run | ✅ | `/api/invoices`, `/summary`, `/due-preview`, `/generate-due`, actions | Customer-name sorting is supported. "Send" needs SMTP on the server (otherwise 503 with a clear message). |
 | Payments | ✅ | `/api/payments`, `/summary` | — |
 | Discounts | ✅ | `/api/discounts`, `/counts`, `/validate` | — |
 | Taxes | ✅ | `/api/taxes`, `/{id}/default` | `DELETE` deactivates (so "Delete" stays hidden). |
 | Users & staff | ✅ | `/api/users`, `/counts`, `/{id}/password-reset` | Invite / reset emails need SMTP; without it the user is still created and the message says so. List is newest first (no sort). |
 | Settings | ✅ | `/api/settings`, `/api/settings/business` | — |
-| Reports | ✅ | `/api/reports`, `/options` | "Time to pay" shows the average only (no day buckets yet). Burn-down groups unpaid balance by due month. |
-| Customer portal | ✅ | `/api/portal/*` | Subscriptions on Portal Home show the number instead of the plan name (not sent by `/portal/subscriptions`). |
+| Reports | ✅ | `/api/reports`, `/options` | "Time to pay" includes the four payment-delay buckets and average. Burn-down groups unpaid balance by due month. |
+| Customer portal | ✅ | `/api/portal/*` | Subscription rows include the plan name and monthly amount. |
 | AI assistant | ✅ | `/api/ai/chat`, `/api/ai/actions/{id}/approve\|reject` | Needs `GEMINI_API_KEY` (or OpenAI) on the server; without it the assistant replies that it's unavailable. |
 
 ## 3. Original backend change request (now implemented)
 
-Kept for reference — the backend commit `bb2aba5` implemented these. Small follow-ups still open: plan name in `/api/portal/subscriptions`, day buckets for `payment_timing`, sort by customer name for invoices.
+Kept for reference — the backend commit `bb2aba5` implemented these. The follow-ups for portal plan names, payment-timing buckets and invoice customer-name sorting are now implemented.
 
 ### Invoices (`backend/app/routers/invoices.py`)
 1. **List + detail rows:** add `customer_name`, `subscription_number`, `plan_name`. Without them the list can only show UUIDs.

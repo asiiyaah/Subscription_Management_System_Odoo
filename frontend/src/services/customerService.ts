@@ -1,7 +1,7 @@
 import { api, toApiError, USE_MOCKS } from "@/services/api";
 import { mockCustomers } from "@/mocks/customers";
 import type { Customer, CustomerDetail, CustomerCreate, CustomerUpdate, CustomerListQuery } from "@/types/customer";
-import type { Paginated } from "@/types/common";
+import type { Id, Paginated } from "@/types/common";
 
 // Endpoints are documented in docs/api-contracts.md.
 
@@ -17,8 +17,8 @@ export const customerService = {
   },
 
   /** GET /api/customers/:id — full customer record including stats. */
-  async getById(id: number): Promise<CustomerDetail> {
-    if (USE_MOCKS) return mockCustomers.getById(id);
+  async getById(id: Id): Promise<CustomerDetail> {
+    if (USE_MOCKS) return mockCustomers.getById(Number(id));
     try {
       return (await api.get<CustomerDetail>(`/api/customers/${id}`)).data;
     } catch (e) {
@@ -37,8 +37,8 @@ export const customerService = {
   },
 
   /** PUT /api/customers/:id — update an existing customer. */
-  async update(id: number, data: CustomerUpdate): Promise<Customer> {
-    if (USE_MOCKS) return mockCustomers.update(id, data);
+  async update(id: Id, data: CustomerUpdate): Promise<Customer> {
+    if (USE_MOCKS) return mockCustomers.update(Number(id), data);
     try {
       return (await api.put<Customer>(`/api/customers/${id}`, data)).data;
     } catch (e) {
@@ -47,8 +47,8 @@ export const customerService = {
   },
 
   /** POST /api/customers/:id/invite — send a portal invitation. */
-  async inviteToPortal(id: number): Promise<{ message: string }> {
-    if (USE_MOCKS) return mockCustomers.inviteToPortal(id);
+  async inviteToPortal(id: Id): Promise<{ message: string }> {
+    if (USE_MOCKS) return mockCustomers.inviteToPortal(Number(id));
     try {
       return (await api.post<{ message: string }>(`/api/customers/${id}/invite`)).data;
     } catch (e) {

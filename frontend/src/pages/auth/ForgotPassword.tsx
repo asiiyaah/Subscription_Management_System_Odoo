@@ -31,7 +31,7 @@ export default function ForgotPassword() {
 
   if (mutation.isSuccess) {
     return (
-      <AuthLayout title="Check your email" subtitle={`We sent instructions to ${email.trim()}.`}>
+      <AuthLayout title="Check your email" subtitle={`If this address belongs to an account, reset instructions will be sent to ${email.trim()}.`}>
         <div className="space-y-5">
           <div className="flex justify-center">
             <span className="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 ring-1 ring-primary/40">
@@ -40,7 +40,7 @@ export default function ForgotPassword() {
           </div>
           <Alert tone="success">{mutation.data.message}</Alert>
           <p className="text-sm text-muted">
-            The link expires in 30 minutes. Didn't get it? Check your spam folder or{" "}
+            Reset links expire in 30 minutes. If email delivery is configured and you don't receive one, check your spam folder or{" "}
             <button
               type="button"
               onClick={() => mutation.mutate()}

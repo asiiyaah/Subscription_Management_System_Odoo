@@ -4,11 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Building2,
   CalendarDays,
-  CreditCard,
   Mail,
   MapPin,
   Phone,
-  Receipt,
   Repeat,
   UserCircle2,
   Pencil,
@@ -22,6 +20,9 @@ import { CustomerFormDialog } from "@/components/customers/CustomerFormDialog";
 import { customerService } from "@/services/customerService";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { ApiError } from "@/services/api";
+import { InvoiceTable } from "@/components/invoices/InvoiceTable";
+import { CustomerPaymentTable } from "@/components/payments/CustomerPaymentTable";
+import type { Id } from "@/types/common";
 
 const TABS: TabOption[] = [
   { value: "overview", label: "Overview" },
@@ -74,22 +75,19 @@ function DetailSkeleton() {
 }
 
 // ---------------------------------------------------------------------------
-// Tab content placeholders (until Member 2 provides shared table components)
-// ---------------------------------------------------------------------------
-function SubscriptionsTab({ customerId }: { customerId: number }) {
+function SubscriptionsTab({ customerId }: { customerId: Id }) {
   return (
     <div className="rounded-2xl border border-line bg-surface p-8 text-center">
       <Repeat className="mx-auto mb-3 size-10 text-muted/40" aria-hidden />
       <p className="font-semibold text-ink">Subscriptions</p>
       <p className="mt-1 text-sm text-muted">
-        Customer {customerId}'s subscriptions will appear here once the Subscriptions module is
-        complete.
+        View this customer's subscriptions in the subscriptions workspace.
       </p>
       <Button
         variant="secondary"
         size="sm"
         className="mt-4"
-        onClick={() => (window.location.href = `/subscriptions?customer_id=${customerId}`)}
+        onClick={() => (window.location.href = `/subscriptions?customer_id=${encodeURIComponent(String(customerId))}`)}
       >
         View all subscriptions
       </Button>
@@ -97,30 +95,12 @@ function SubscriptionsTab({ customerId }: { customerId: number }) {
   );
 }
 
-function InvoicesTab() {
-  return (
-    <div className="rounded-2xl border border-dashed border-line bg-surface/40 p-8 text-center">
-      <Receipt className="mx-auto mb-3 size-10 text-muted/40" aria-hidden />
-      <p className="font-semibold text-ink">Invoices</p>
-      <p className="mt-1 text-sm text-muted">
-        Member 2's <code className="rounded bg-surface-2 px-1.5 py-0.5 text-xs">&lt;InvoiceTable customerId&gt;</code> component will be
-        rendered here once exported.
-      </p>
-    </div>
-  );
+function InvoicesTab({ customerId }: { customerId: Id }) {
+  return <InvoiceTable customerId={customerId} pageSize={10} />;
 }
 
-function PaymentsTab() {
-  return (
-    <div className="rounded-2xl border border-dashed border-line bg-surface/40 p-8 text-center">
-      <CreditCard className="mx-auto mb-3 size-10 text-muted/40" aria-hidden />
-      <p className="font-semibold text-ink">Payments</p>
-      <p className="mt-1 text-sm text-muted">
-        Member 2's <code className="rounded bg-surface-2 px-1.5 py-0.5 text-xs">&lt;PaymentTable customerId&gt;</code> component will be
-        rendered here once exported.
-      </p>
-    </div>
-  );
+function PaymentsTab({ customerId }: { customerId: Id }) {
+  return <CustomerPaymentTable customerId={customerId} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -129,7 +109,7 @@ function PaymentsTab() {
 export default function CustomerDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const customerId = Number(id);
+  const customerId = id ?? "";
 
   const [activeTab, setActiveTab] = useState("overview");
   const [editOpen, setEditOpen] = useState(false);
@@ -143,7 +123,7 @@ export default function CustomerDetail() {
   } = useQuery({
     queryKey: ["customer", customerId],
     queryFn: () => customerService.getById(customerId),
-    enabled: !isNaN(customerId),
+    enabled: Boolean(customerId),
   });
 
   if (isLoading) return <DetailSkeleton />;
@@ -290,8 +270,8 @@ export default function CustomerDetail() {
         )}
 
         {activeTab === "subscriptions" && <SubscriptionsTab customerId={customer.id} />}
-        {activeTab === "invoices" && <InvoicesTab />}
-        {activeTab === "payments" && <PaymentsTab />}
+        {activeTab === "invoices" && <InvoicesTab customerId={customer.id} />}
+        {activeTab === "payments" && <PaymentsTab customerId={customer.id} />}
       </div>
 
       {/* Edit dialog */}

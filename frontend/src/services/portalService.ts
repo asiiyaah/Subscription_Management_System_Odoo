@@ -3,7 +3,7 @@ import { mockPortal } from "@/mocks/portal";
 import { normalizeInvoice } from "@/services/invoiceService";
 import type { Id, Paginated } from "@/types/common";
 import type { Invoice, InvoiceListQuery, InvoiceSummaryRow } from "@/types/invoice";
-import type { PortalSummary } from "@/types/portal";
+import type { PortalSubscription, PortalSummary } from "@/types/portal";
 
 /** Customer portal (R6): every endpoint returns only the signed-in customer's own data (from the token). */
 const LIVE = isLive("portal");
@@ -66,6 +66,36 @@ async function liveSummary(): Promise<PortalSummary> {
 export const portalService = {
   summary(): Promise<PortalSummary> {
     return LIVE ? liveSummary() : mockPortal.summary();
+  },
+
+  async subscriptions(): Promise<Paginated<PortalSubscription>> {
+    if (!LIVE) {
+      const summary = await mockPortal.summary();
+      const items = summary.subscriptions.map((subscription) => ({
+        id: subscription.id,
+        subscription_number: subscription.number,
+        plan_name: subscription.plan_name,
+        status: subscription.status,
+        next_billing_date: subscription.next_invoice_date,
+        total: subscription.monthly_amount,
+      }));
+      return { items, total: items.length, page: 1, page_size: 100 };
+    }
+    return request(() => api.get("/api/portal/subscriptions", { params: { page: 1, page_size: 100 } }));
+  },
+
+  async subscription(id: Id): Promise<PortalSubscription> {
+    if (!LIVE) {
+      const match = (await this.subscriptions()).items.find((subscription) => String(subscription.id) === String(id));
+      if (!match) throw new Error("Subscription not found.");
+      return match;
+    }
+    return request(() => api.get(`/api/portal/subscriptions/${id}`));
+  },
+
+  async subscriptionAction(id: Id, action: "pause" | "resume" | "close" | "renew") {
+    if (!LIVE) throw new Error("Subscription actions require the live backend.");
+    return request(() => api.post(`/api/portal/subscriptions/${id}/${action}`));
   },
 
   /** Extra filter: `unpaid=true`. Drafts are never returned. */
