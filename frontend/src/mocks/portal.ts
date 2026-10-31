@@ -138,7 +138,7 @@ export const mockPortal = {
       throw new ApiError(404, "Subscription not found.");
     }
     const page = await this.invoices({ page: 1, page_size: 100, subscription_id: id } as InvoiceListQuery);
-    return page.items;
+    return page.items.sort((a, b) => b.invoice_date.localeCompare(a.invoice_date));
   },
 
   async invoices(query: InvoiceListQuery): Promise<Paginated<InvoiceSummaryRow>> {
