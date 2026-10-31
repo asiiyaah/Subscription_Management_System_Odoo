@@ -6,4 +6,10 @@ export const BUSINESS = {
   email: "billing@subscriptiq.com",
   phone: "+91 80 4000 1234",
   gstin: "29AAKCS1234F1Z5",
+  bank: {
+    name: "HDFC Bank, Residency Road",
+    account: "50200012345678",
+    ifsc: "HDFC0001234",
+    upi: "subscriptiq@hdfcbank",
+  },
 };

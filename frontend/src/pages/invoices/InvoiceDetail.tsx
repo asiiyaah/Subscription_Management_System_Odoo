@@ -122,96 +122,124 @@ export default function InvoiceDetail() {
 
 /** The printable invoice. `invoice-doc` switches it to black-on-white when printing (see index.css). */
 function InvoiceDocument({ invoice }: { invoice: Invoice }) {
+  const awaitingPayment = invoice.status === "confirmed" && invoice.balance > 0;
+
   return (
     <article className="invoice-doc rounded-3xl border border-line bg-surface/70 p-6 sm:p-8">
-      <header className="flex flex-wrap items-start justify-between gap-6 border-b border-line pb-6">
-        <div>
+      {/* Seller + invoice number */}
+      <header className="flex flex-wrap items-start justify-between gap-x-8 gap-y-5">
+        <div className="min-w-0">
           <p className="text-lg font-bold">{BUSINESS.name}</p>
-          <p className="mt-1 max-w-xs text-sm text-muted">{BUSINESS.address}</p>
-          <p className="text-sm text-muted">
-            {BUSINESS.email} · {BUSINESS.phone}
-          </p>
-          <p className="text-sm text-muted">GSTIN {BUSINESS.gstin}</p>
+          <div className="mt-1.5 space-y-0.5 text-sm text-muted">
+            <p>{BUSINESS.address}</p>
+            <p>
+              {BUSINESS.email} · {BUSINESS.phone}
+            </p>
+            <p>GSTIN {BUSINESS.gstin}</p>
+          </div>
         </div>
-        <div className="text-right">
+        <div className="sm:text-right">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">
             {invoice.status === "draft" ? "Draft invoice" : "Tax invoice"}
           </p>
-          <p className="mt-1 text-2xl font-extrabold">{invoice.number}</p>
-          <div className="mt-2 flex justify-end">
-            <InvoiceStatusBadge invoice={invoice} />
-          </div>
+          <p className="mt-1 text-2xl font-extrabold tracking-tight">{invoice.number}</p>
+          <InvoiceStatusBadge invoice={invoice} className="mt-2" />
         </div>
       </header>
 
-      <section className="grid gap-6 border-b border-line py-6 sm:grid-cols-2 lg:grid-cols-3">
-        <Meta label="Bill to">
+      {/* Customer (left) + invoice facts in an even 2 × 3 grid (right) */}
+      <section className="mt-8 grid gap-8 border-y border-line py-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <div>
+          <FieldLabel>Bill to</FieldLabel>
           <p className="font-semibold">{invoice.customer_name}</p>
-          <p className="text-muted">{invoice.customer_email}</p>
-          {invoice.customer_address && <p className="text-muted">{invoice.customer_address}</p>}
-        </Meta>
-        <div className="space-y-4">
-          <Meta label="Invoice date">{formatDate(invoice.invoice_date)}</Meta>
-          <Meta label="Due date">
+          <div className="mt-1 space-y-0.5 text-sm text-muted">
+            <p>{invoice.customer_email}</p>
+            {invoice.customer_address && <p>{invoice.customer_address}</p>}
+          </div>
+        </div>
+
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-5 text-sm">
+          <Field label="Invoice date">{formatDate(invoice.invoice_date)}</Field>
+          <Field label="Due date">
             <span className={cn(invoice.is_overdue && "font-semibold text-danger")}>{formatDate(invoice.due_date)}</span>
-            {invoice.status === "confirmed" && invoice.balance > 0 && (
-              <span className={cn("ml-2 text-xs", invoice.is_overdue ? "text-danger" : "text-muted")}>
-                ({invoice.is_overdue ? "overdue, " : ""}
-                {formatRelativeDays(invoice.due_date)})
+            {awaitingPayment && (
+              <span className={cn("block text-xs", invoice.is_overdue ? "text-danger/80" : "text-muted")}>
+                {invoice.is_overdue ? `Overdue · ${formatRelativeDays(invoice.due_date)}` : formatRelativeDays(invoice.due_date)}
               </span>
             )}
-          </Meta>
-        </div>
-        <div className="space-y-4">
-          <Meta label="Subscription">
+          </Field>
+          <Field label="Billing period">
+            {formatDate(invoice.period_start)} – {formatDate(invoice.period_end)}
+          </Field>
+          <Field label="Payment terms">{invoice.payment_terms}</Field>
+          <Field label="Subscription">
             <Link to={`/subscriptions/${invoice.subscription_id}`} className="font-medium text-primary hover:underline">
               {invoice.subscription_number}
             </Link>
-            <span className="text-muted"> · {invoice.plan_name}</span>
-          </Meta>
-          <Meta label="Billing period">
-            {formatDate(invoice.period_start)} – {formatDate(invoice.period_end)}
-          </Meta>
-          <Meta label="Payment terms">{invoice.payment_terms}</Meta>
-        </div>
+          </Field>
+          <Field label="Plan">{invoice.plan_name}</Field>
+        </dl>
       </section>
 
-      <div className="-mx-6 overflow-x-auto sm:-mx-8">
-        <table className="w-full min-w-[36rem] text-sm">
+      {/* Lines — first/last columns sit flush with the card padding so every divider lines up */}
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[34rem] text-sm">
           <thead>
-            <tr className="text-xs uppercase tracking-wider text-muted">
-              <th scope="col" className="px-6 py-3 text-left font-semibold sm:pl-8">Product</th>
-              <th scope="col" className="px-3 py-3 text-right font-semibold">Qty</th>
-              <th scope="col" className="px-3 py-3 text-right font-semibold">Unit price</th>
-              <th scope="col" className="px-3 py-3 text-right font-semibold">Tax</th>
-              <th scope="col" className="px-6 py-3 text-right font-semibold sm:pr-8">Amount</th>
+            <tr className="border-b border-line text-xs uppercase tracking-wider text-muted">
+              <th scope="col" className="py-3 pr-4 text-left font-semibold">Product</th>
+              <th scope="col" className="w-16 px-4 py-3 text-right font-semibold">Qty</th>
+              <th scope="col" className="px-4 py-3 text-right font-semibold">Unit price</th>
+              <th scope="col" className="px-4 py-3 text-right font-semibold">Tax</th>
+              <th scope="col" className="py-3 pl-4 text-right font-semibold">Amount</th>
             </tr>
           </thead>
           <tbody>
             {invoice.lines.map((line) => (
-              <tr key={line.id} className="border-t border-line/70">
-                <td className="px-6 py-3.5 sm:pl-8">
+              <tr key={line.id} className="border-b border-line/60 align-top">
+                <td className="py-4 pr-4">
                   <p className="font-medium">{line.product_name}</p>
-                  {line.description && <p className="text-xs text-muted">{line.description}</p>}
+                  {line.description && <p className="mt-0.5 text-xs text-muted">{line.description}</p>}
                 </td>
-                <td className="px-3 py-3.5 text-right">{line.quantity}</td>
-                <td className="px-3 py-3.5 text-right">{formatCurrency(line.unit_price)}</td>
-                <td className="px-3 py-3.5 text-right text-muted">{line.tax_label ?? "—"}</td>
-                <td className="px-6 py-3.5 text-right font-medium sm:pr-8">{formatCurrency(line.amount)}</td>
+                <td className="px-4 py-4 text-right tabular-nums">{line.quantity}</td>
+                <td className="px-4 py-4 text-right tabular-nums">{formatCurrency(line.unit_price)}</td>
+                <td className="px-4 py-4 text-right text-muted">{line.tax_label ?? "—"}</td>
+                <td className="py-4 pl-4 text-right font-medium tabular-nums">{formatCurrency(line.amount)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <section className="mt-2 flex justify-end border-t border-line pt-5">
-        <dl className="w-full max-w-sm space-y-2 text-sm">
+      {/* Payment info (left) + totals (right). On phones the totals come first. */}
+      <section className="mt-6 grid gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+        <div className="order-2 text-sm md:order-1">
+          <FieldLabel>Payment information</FieldLabel>
+          <p className="text-muted">
+            Pay by UPI or bank transfer and use <span className="font-semibold text-ink">{invoice.number}</span> as the
+            reference.
+          </p>
+          <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1">
+            <dt className="text-muted">UPI</dt>
+            <dd>{BUSINESS.bank.upi}</dd>
+            <dt className="text-muted">Bank</dt>
+            <dd>{BUSINESS.bank.name}</dd>
+            <dt className="text-muted">Account</dt>
+            <dd className="tabular-nums">{BUSINESS.bank.account}</dd>
+            <dt className="text-muted">IFSC</dt>
+            <dd>{BUSINESS.bank.ifsc}</dd>
+          </dl>
+        </div>
+
+        <dl className="order-1 space-y-2.5 text-sm md:order-2">
           <TotalRow label="Subtotal" value={formatCurrency(invoice.untaxed_amount)} />
           {invoice.discount && (
             <TotalRow
               label={
                 <>
-                  Discount <span className="text-xs text-muted">({invoice.discount.code} · {invoice.discount.label})</span>
+                  Discount
+                  <span className="block text-xs text-muted">
+                    {invoice.discount.code} · {invoice.discount.label}
+                  </span>
                 </>
               }
               value={`− ${formatCurrency(invoice.discount.amount)}`}
@@ -221,22 +249,25 @@ function InvoiceDocument({ invoice }: { invoice: Invoice }) {
           {invoice.taxes.map((tax) => (
             <TotalRow key={tax.label} label={tax.label} value={formatCurrency(tax.amount)} muted />
           ))}
-          <TotalRow label="Total" value={formatCurrency(invoice.total)} strong className="border-t border-line pt-2.5" />
+          <TotalRow label="Total" value={formatCurrency(invoice.total)} strong className="border-t border-line pt-3" />
           {invoice.amount_paid > 0 && <TotalRow label="Amount paid" value={`− ${formatCurrency(invoice.amount_paid)}`} muted />}
           {invoice.status !== "cancelled" && (
+            // -mx-3 + px-3: the highlight extends past the column but the text stays aligned with the rows above
             <TotalRow
               label="Balance due"
               value={formatCurrency(invoice.balance)}
               strong
-              className={cn("rounded-xl px-3 py-2.5", invoice.balance > 0 ? "bg-primary/10 text-primary" : "bg-success/10 text-success")}
+              className={cn(
+                "-mx-3 rounded-xl px-3 py-2.5",
+                invoice.balance > 0 ? "bg-primary/10 text-primary" : "bg-success/10 text-success",
+              )}
             />
           )}
         </dl>
       </section>
 
       <footer className="mt-8 border-t border-line pt-5 text-xs text-muted">
-        Please quote <span className="font-semibold text-ink">{invoice.number}</span> with your payment. Questions? Write to{" "}
-        {BUSINESS.email}.
+        Thank you for your business. Questions about this invoice? Write to {BUSINESS.email}.
       </footer>
     </article>
   );
@@ -286,11 +317,16 @@ function PaymentsCard({ invoice }: { invoice: Invoice }) {
   );
 }
 
-function Meta({ label, children }: { label: string; children: ReactNode }) {
+function FieldLabel({ children }: { children: ReactNode }) {
+  return <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted">{children}</p>;
+}
+
+/** One label/value pair inside a <dl>. */
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="text-sm">
-      <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">{label}</p>
-      {children}
+    <div className="min-w-0">
+      <dt className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">{label}</dt>
+      <dd>{children}</dd>
     </div>
   );
 }
@@ -311,7 +347,7 @@ function TotalRow({
   return (
     <div className={cn("flex items-baseline justify-between gap-4", strong && "text-base font-bold", muted && "text-muted", className)}>
       <dt>{label}</dt>
-      <dd className="text-right whitespace-nowrap">{value}</dd>
+      <dd className="text-right whitespace-nowrap tabular-nums">{value}</dd>
     </div>
   );
 }
